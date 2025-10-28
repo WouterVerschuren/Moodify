@@ -9,8 +9,8 @@ const AudioPlayer = () => {
   useEffect(() => {
     const fetchSongsList = async () => {
       try {
-        console.log("Fetching songs from:", "http://localhost:5252/api/audio");
-        const res = await axios.get("http://localhost:5252/api/audio");
+        console.log("Fetching songs from:", `${process.env.REACT_APP_API_URL}/api/audio`);
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/audio`);
         console.log("Songs data:", res.data);
         setSongs(res.data);
       } catch (err) {

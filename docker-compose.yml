@@ -1,0 +1,24 @@
+services:
+  audioservice:
+    build: ./Services/AudioService
+    container_name: moodify-audioservice
+    environment:
+      - SUPABASE_DB_CONNECTION=${SUPABASE_DB_CONNECTION}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE=${SUPABASE_SERVICE_ROLE}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_BUCKET=${SUPABASE_BUCKET}
+      - AUDIO_UPLOAD_PATH=${AUDIO_UPLOAD_PATH}
+      - MOODIFY_STORAGE_ACCESS_KEY_ID=${MOODIFY_STORAGE_ACCESS_KEY_ID}
+    ports:
+      - "5000:8080"
+
+  frontend:
+    build: ./MoodifyFrontend
+    container_name: moodify-frontend
+    depends_on:
+      - audioservice
+    environment:
+      - REACT_APP_API_URL=http://audioservice:8080
+    ports:
+      - "3000:80"
