@@ -7,7 +7,8 @@ on:
   pull_request:
     branches:
       - main
-  workflow_dispatch:   
+  workflow_dispatch:   # ✅ allows manual testing
+
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
@@ -57,10 +58,14 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build backend Docker image
-        run: docker build -t your-dockerhub-username/moodify-audioservice:latest ./Services/AudioService
+        run: |
+          docker build -t wouter525/moodify-audioservice:latest ./Services/AudioService
+          docker tag wouter525/moodify-audioservice:latest wouter525/moodify-audioservice:${{ github.sha }}
 
       - name: Push backend Docker image
-        run: docker push your-dockerhub-username/moodify-audioservice:latest
+        run: |
+          docker push wouter525/moodify-audioservice:latest
+          docker push wouter525/moodify-audioservice:${{ github.sha }}
 
   build-frontend:
     needs: detect-changes
@@ -89,7 +94,11 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build frontend Docker image
-        run: docker build -t your-dockerhub-username/moodify-frontend:latest ./MoodifyFrontend
+        run: |
+          docker build -t wouter525/moodify-frontend:latest ./MoodifyFrontend
+          docker tag wouter525/moodify-frontend:latest wouter525/moodify-frontend:${{ github.sha }}
 
       - name: Push frontend Docker image
-        run: docker push your-dockerhub-username/moodify-frontend:latest
+        run: |
+          docker push wouter525/moodify-frontend:latest
+          docker push wouter525/moodify-frontend:${{ github.sha }}
