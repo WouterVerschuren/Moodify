@@ -7,8 +7,7 @@ on:
   pull_request:
     branches:
       - main
-    workflow_dispatch:
-
+  workflow_dispatch:   
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
@@ -29,7 +28,7 @@ jobs:
 
   build-audio:
     needs: detect-changes
-    if: needs.detect-changes.outputs.audio-service == 'true'
+    if: needs.detect-changes.outputs.audio-service == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -65,7 +64,7 @@ jobs:
 
   build-frontend:
     needs: detect-changes
-    if: needs.detect-changes.outputs.frontend == 'true'
+    if: needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
