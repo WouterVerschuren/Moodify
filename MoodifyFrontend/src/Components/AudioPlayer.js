@@ -10,7 +10,7 @@ const AudioPlayer = () => {
     const fetchSongsList = async () => {
       try {
         console.log("Fetching songs from:", `${process.env.REACT_APP_API_URL}/api/audio`);
-        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/audio`);
+        const res = await axios.get(`http://localhost:5000/api/audio`);
         console.log("Songs data:", res.data);
         setSongs(res.data);
       } catch (err) {
@@ -24,7 +24,6 @@ const AudioPlayer = () => {
   const handleSongSelect = (song) => {
     setLoading(true);
     console.log("Selected song:", song);
-    console.log("Audio URL will be:", song.SignedUrl); // now uses the signed URL
     setCurrentSong(song);
     setLoading(false);
   };
@@ -44,7 +43,7 @@ const AudioPlayer = () => {
             onCanPlay={() => console.log('Audio can play')}
           >
             <source
-              src={currentSong.SignedUrl}
+              src={currentSong.storagePath}
               type="audio/mpeg"
             />
             Your browser does not support the audio element.

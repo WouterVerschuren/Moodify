@@ -10,6 +10,7 @@ services:
       - SUPABASE_BUCKET=${SUPABASE_BUCKET}
       - AUDIO_UPLOAD_PATH=${AUDIO_UPLOAD_PATH}
       - MOODIFY_STORAGE_ACCESS_KEY_ID=${MOODIFY_STORAGE_ACCESS_KEY_ID}
+      - ASPNETCORE_ENVIRONMENT=Development
     ports:
       - "5000:8080"
 
@@ -19,6 +20,6 @@ services:
     depends_on:
       - audioservice
     environment:
-      - REACT_APP_API_URL=http://audioservice:8080
+      - REACT_APP_API_URL=http://audioservice:5000
     ports:
       - "3000:80"

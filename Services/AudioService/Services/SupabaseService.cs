@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text;
 using Microsoft.AspNetCore.Http;
 using MoodifyAPI.Models;
+using System.Text.RegularExpressions;
 
 namespace MoodifyAPI.Services
 {
@@ -31,43 +32,49 @@ namespace MoodifyAPI.Services
             _httpClient = new HttpClient();
         }
 
-        // ✅ Upload file + save metadata
+        // Upload file + save metadata
         public async Task<Song> UploadFileAsync(IFormFile file, string title, string artist, string songMood)
+{
+    if (file == null || file.Length == 0)
+        throw new ArgumentException("No file provided.");
+
+    // Sanitize filename: remove spaces and special characters
+    var sanitizedFileName = Path.GetFileNameWithoutExtension(file.FileName);
+    sanitizedFileName = Regex.Replace(sanitizedFileName, @"[^a-zA-Z0-9]", ""); // keep only letters/numbers
+
+    var extension = Path.GetExtension(file.FileName);
+    var uniqueFileName = $"{Guid.NewGuid()}_{sanitizedFileName}{extension}";
+
+    var bucket = _supabase.Storage.From(_bucketName);
+
+    using (var ms = new MemoryStream())
+    {
+        await file.CopyToAsync(ms);
+        var fileBytes = ms.ToArray();
+
+        var uploadedPath = await bucket.Upload(fileBytes, uniqueFileName, new Supabase.Storage.FileOptions
         {
-            if (file == null || file.Length == 0)
-                throw new ArgumentException("No file provided.");
+            ContentType = file.ContentType ?? "audio/mpeg",
+            Upsert = true
+        });
 
-            var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
-            var bucket = _supabase.Storage.From(_bucketName);
+        Console.WriteLine($"Uploaded file path in Supabase: {uploadedPath}");
 
-            using (var ms = new MemoryStream())
-            {
-                await file.CopyToAsync(ms);
-                var fileBytes = ms.ToArray();
+        var song = new Song
+        {
+            Title = title,
+            Artist = artist,
+            StoragePath = uniqueFileName,
+            SongMood = songMood,
+            ContentType = file.ContentType ?? "audio/mpeg"
+        };
 
-                var uploadedPath = await bucket.Upload(fileBytes, uniqueFileName, new Supabase.Storage.FileOptions
-                {
-                    ContentType = file.ContentType ?? "audio/mpeg",
-                    Upsert = true
-                });
+        await CreateSongAsync(song);
+        return song;
+    }
+}
 
-                Console.WriteLine($"✅ Uploaded file path in Supabase: {uploadedPath}");
-
-                var song = new Song
-                {
-                    Title = title,
-                    Artist = artist,
-                    StoragePath = uniqueFileName,
-                    SongMood = songMood,
-                    ContentType = file.ContentType ?? "audio/mpeg"
-                };
-
-                await CreateSongAsync(song);
-                return song;
-            }
-        }
-
-        // ✅ Create signed URL (skip missing files)
+        // Create signed URL (skip missing files)
         public async Task<string?> GetSignedUrlAsync(string path, int expiresInSeconds = 3600)
         {
             try
@@ -79,12 +86,12 @@ namespace MoodifyAPI.Services
             }
             catch (Supabase.Storage.Exceptions.SupabaseStorageException ex)
             {
-                Console.WriteLine($"⚠️ Skipped missing file: {path} ({ex.Message})");
+                Console.WriteLine($" Skipped missing file: {path} ({ex.Message})");
                 return null;
             }
         }
 
-        // ✅ Save metadata
+        // Save metadata
         public async Task CreateSongAsync(Song song)
         {
             var songJson = new
@@ -115,26 +122,37 @@ namespace MoodifyAPI.Services
             }
         }
 
-        // ✅ Fetch songs (still uses direct REST call)
+        // Fetch songs (still uses direct REST call)
         public async Task<List<Song>> GetSongsAsync()
+{
+    var request = new HttpRequestMessage(HttpMethod.Get, _restUrl + "?select=*");
+    request.Headers.Add("apikey", _serviceRoleKey);
+    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _serviceRoleKey);
+
+    var response = await _httpClient.SendAsync(request);
+    var respContent = await response.Content.ReadAsStringAsync();
+
+    if (!response.IsSuccessStatusCode)
+        throw new Exception($"Supabase fetch failed: {response.StatusCode} {respContent}");
+
+    var songs = JsonSerializer.Deserialize<List<Song>>(respContent,
+        new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<Song>();
+        
+    // Add public Supabase storage URL in front of every song’s path
+    string publicBaseUrl = "https://ntbhghwtfmgdorwevudq.supabase.co/storage/v1/object/public/Moodify-Songs/";
+
+    foreach (var song in songs)
+    {
+        if (!string.IsNullOrEmpty(song.StoragePath) && !song.StoragePath.StartsWith("http"))
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, _restUrl + "?select=*");
-            request.Headers.Add("apikey", _serviceRoleKey);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _serviceRoleKey);
-
-            var response = await _httpClient.SendAsync(request);
-            var respContent = await response.Content.ReadAsStringAsync();
-
-            if (!response.IsSuccessStatusCode)
-                throw new Exception($"Supabase fetch failed: {response.StatusCode} {respContent}");
-
-            var songs = JsonSerializer.Deserialize<List<Song>>(respContent,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<Song>();
-
-            return songs;
+            song.StoragePath = $"{publicBaseUrl}{song.StoragePath}";
         }
+    }
 
-        // ✅ Delete file + metadata
+    return songs;
+}
+
+        // Delete file + metadata
         public async Task DeleteSongAsync(string storagePath)
         {
             await _supabase.Storage.From(_bucketName).Remove(storagePath);

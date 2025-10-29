@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using MoodifyAPI.Models;
 using System.Reflection;
 using Microsoft.OpenApi.Any;
+using System.Text.Json.Serialization; // <- needed for JsonStringEnumConverter
 
 DotNetEnv.Env.Load();
 
@@ -22,7 +23,13 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddControllers();
+// Add controllers with enum as string serialization
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+
 builder.Services.AddSingleton<SupabaseService>();
 
 builder.Services.AddEndpointsApiExplorer();
@@ -35,6 +42,8 @@ builder.Services.AddSwaggerGen(c =>
         Description = "Upload songs with Supabase"
     });
 
+    // Show enums as strings in Swagger UI
+    c.UseInlineDefinitionsForEnums();
 });
 
 var app = builder.Build();
@@ -56,4 +65,3 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
-
