@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Http;
 using MoodifyAPI.Models;
 using System.Reflection;
 using Microsoft.OpenApi.Any;
-using System.Text.Json.Serialization; // <- needed for JsonStringEnumConverter
+using System.Text.Json.Serialization; 
 
 DotNetEnv.Env.Load();
 
@@ -16,7 +16,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        policy.WithOrigins("http://localhost:3000") // your React frontend
+        policy.WithOrigins("http://localhost:3000")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();

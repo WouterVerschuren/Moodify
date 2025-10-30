@@ -10,22 +10,22 @@ export const options = {
 };
 
 export default function () {
-  const listRes = http.get('http://localhost:5252/api/audio');
+  const listRes = http.get('http://localhost:5000/api/audio');
   check(listRes, {
     'list status is 200': (r) => r.status === 200,
     'list response time < 500ms': (r) => r.timings.duration < 500,
   });
 
-  // 2️⃣ Optional: GET a specific song by id (stream)
-  const songs = listRes.json(); // parse JSON response
-    const streamRes = http.get(`http://localhost:5252/api/audio/${4}`);
-    check(streamRes, {
-      'stream status is 200': (r) => r.status === 200,
-      'stream content-type is audio': (r) =>
-        r.headers['Content-Type'].startsWith('audio/'),
-    });
+  // // Optional: GET a specific song by id (stream)
+  // const songs = listRes.json(); // parse JSON response
+  //   const streamRes = http.get(`http://localhost:5000/api/audio/${11}`);
+  //   check(streamRes, {
+  //     'stream status is 200': (r) => r.status === 200,
+  //     'stream content-type is audio': (r) =>
+  //       r.headers['Content-Type'].startsWith('audio/'),
+  //   });
 
-  sleep(1); // 1s pause between iterations  
+  // sleep(1); // 1s pause between iterations  
 }
 
 //Prometheus:
@@ -36,5 +36,5 @@ export default function () {
 
 //K6:
 
-//cd "C:\Users\finwo\Documents\Schoolwerk\Semester7\IP\Code\MoodifyAPI\MoodifyK6Tests"
+//cd "C:\Users\finwo\Documents\Schoolwerk\Semester7\IP\Code\Moodify\Services\MoodifyK6Tests"
 //k6 cloud run --local-execution LoadTest.js

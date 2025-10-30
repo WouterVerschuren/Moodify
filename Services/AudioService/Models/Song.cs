@@ -2,15 +2,15 @@ using System.Text.Json.Serialization;
 
 namespace MoodifyAPI.Models
 {
-    public enum Mood
-    {
-        Happy,
-        Sad,
-        Chill,
-        Energetic,
-        Romantic,
-        Angry
-    }
+   public enum Mood
+{
+    Happy,
+    Sad,
+    Chill,
+    Energetic,
+    Romantic,
+}
+
 
     public class Song
     {
