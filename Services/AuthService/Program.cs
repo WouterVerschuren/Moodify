@@ -1,16 +1,20 @@
+using DotNetEnv;
 using Microsoft.OpenApi.Models;
-using MoodifyAPI.Services;
-using System.Text.Json.Serialization; 
+using AuthService.Services;
+using System.Text.Json.Serialization;
 
-DotNetEnv.Env.Load();
+DotNetEnv.Env.Load(); 
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add CORS
+// Make Kestrel listen on all network interfaces (required for Docker)
+builder.WebHost.UseUrls("http://0.0.0.0:8080");
+
+// Add CORS 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
-    {   
+    {
         policy.WithOrigins("http://localhost:3000")
               .AllowAnyHeader()
               .AllowAnyMethod()
@@ -18,45 +22,49 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Add controllers with enum as string serialization
+// Add controllers with JSON options
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
-builder.Services.AddSingleton<SupabaseService>();
+// Register SupabaseService for dependency injection
+builder.Services.AddSingleton<ISupabaseService, SupabaseService>();
 
+// Add Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "Moodify API",
+        Title = "AuthService API",
         Version = "v1",
-        Description = "Upload songs with Supabase"
+        Description = "Authentication service using Supabase"
     });
 
-    // Show enums as strings in Swagger UI
+    // Show enums as strings in Swagger UI 
     c.UseInlineDefinitionsForEnums();
 });
 
 var app = builder.Build();
 
-// Use CORS before anything else
+// Use CORS
 app.UseCors("AllowReactApp");
 
-if (app.Environment.IsDevelopment())
+// Enable Swagger always (works in Docker & local)
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseDeveloperExceptionPage();
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Moodify API V1");
-    });
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "AuthService API v1");
+});
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
 }
 
-app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
+
 app.Run();

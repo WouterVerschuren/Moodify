@@ -14,6 +14,17 @@ services:
     ports:
       - "5000:8080"
 
+  authservice:
+    build: ./Services/AuthService
+    container_name: moodify-authservice
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE=${SUPABASE_SERVICE_ROLE}
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports:
+      - "5001:8080"
+
   frontend:
     build: ./MoodifyFrontend
     container_name: moodify-frontend
