@@ -1,15 +1,12 @@
-using Supabase;
-using Supabase.Storage;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text;
-using Microsoft.AspNetCore.Http;
-using MoodifyAPI.Models;
+using AudioService.Models;
 using System.Text.RegularExpressions;
 
-namespace MoodifyAPI.Services
+namespace AudioService.Services
 {
-    public class SupabaseService
+    public class SupabaseService : ISupabaseService
     {
         private readonly Supabase.Client _supabase;
         private readonly string _bucketName;

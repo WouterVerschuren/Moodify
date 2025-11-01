@@ -1,6 +1,6 @@
 using Microsoft.OpenApi.Models;
-using MoodifyAPI.Services;
-using System.Text.Json.Serialization; 
+using AudioService.Services;
+using System.Text.Json.Serialization;
 
 DotNetEnv.Env.Load();
 
@@ -25,14 +25,15 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
-builder.Services.AddSingleton<SupabaseService>();
+// Register SupabaseService via interface
+builder.Services.AddSingleton<ISupabaseService, SupabaseService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "Moodify API",
+        Title = "AudioService API",
         Version = "v1",
         Description = "Upload songs with Supabase"
     });

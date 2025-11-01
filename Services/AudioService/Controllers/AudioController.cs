@@ -1,16 +1,16 @@
 using Microsoft.AspNetCore.Mvc;
-using MoodifyAPI.Models;
-using MoodifyAPI.Services;
+using AudioService.Models;
+using AudioService.Services;
 
-namespace MoodifyAPI.Controllers
+namespace AudioService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     public class AudioController : ControllerBase
     {
-        private readonly SupabaseService _supabase;
+        private readonly ISupabaseService _supabase;
 
-        public AudioController(SupabaseService supabase)
+        public AudioController(ISupabaseService supabase)
         {
             _supabase = supabase;
         }

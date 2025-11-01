@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace MoodifyAPI.Models
+namespace AudioService.Models
 {
    public enum Mood
 {

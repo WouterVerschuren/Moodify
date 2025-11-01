@@ -7593,11 +7593,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\finwo\\Documents\\Schoolwerk\\Semester7\\IP\\Code\\Moodify\\Services\\AudioService\\AudioService.csproj",
+      "projectUniqueName": "C:\\Users\\finwo\\Documents\\Schoolwerk\\Semester7\\IP\\Code\\Moodify\\services\\AudioService\\AudioService.csproj",
       "projectName": "AudioService",
-      "projectPath": "C:\\Users\\finwo\\Documents\\Schoolwerk\\Semester7\\IP\\Code\\Moodify\\Services\\AudioService\\AudioService.csproj",
+      "projectPath": "C:\\Users\\finwo\\Documents\\Schoolwerk\\Semester7\\IP\\Code\\Moodify\\services\\AudioService\\AudioService.csproj",
       "packagesPath": "C:\\Users\\finwo\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\finwo\\Documents\\Schoolwerk\\Semester7\\IP\\Code\\Moodify\\Services\\AudioService\\obj\\",
+      "outputPath": "C:\\Users\\finwo\\Documents\\Schoolwerk\\Semester7\\IP\\Code\\Moodify\\services\\AudioService\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

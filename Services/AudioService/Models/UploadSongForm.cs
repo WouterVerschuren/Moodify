@@ -1,7 +1,4 @@
-using Microsoft.AspNetCore.Http;
-using MoodifyAPI.Models;
-
-namespace MoodifyAPI.Models
+namespace AudioService.Models
 {
     public class UploadSongForm
     {
