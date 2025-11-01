@@ -7,7 +7,7 @@ on:
   pull_request:
     branches:
       - main
-  workflow_dispatch:   # ✅ allows manual testing
+  workflow_dispatch:  
 
 jobs:
   detect-changes:
@@ -47,7 +47,7 @@ jobs:
         working-directory: ./Services/AudioService
         run: dotnet build --configuration Release --no-restore
 
-      - name: Test .NET backend (optional)
+      - name: Test .NET backend 
         working-directory: ./Services/AudioService
         run: dotnet test --no-build --verbosity normal
 
