@@ -17,7 +17,7 @@ namespace AuthService.Controllers
         }
 
         [HttpPost("signup")]
-        public async Task<IActionResult> SignUp([FromBody] SignupRequest request)
+        public async Task<IActionResult> SignUp([FromForm] SignupRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             {
@@ -33,13 +33,13 @@ namespace AuthService.Controllers
             return Ok(result);
         }
 
-        [HttpPost("signin")]
-        public async Task<IActionResult> SignIn([FromBody] SigninRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
-            {
-                return BadRequest(new { message = "Email and password are required" });
-            }
+       [HttpPost("signin")]
+       public async Task<IActionResult> SignIn([FromForm] SigninRequest request)
+       {
+           if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+           {
+               return BadRequest(new { message = "Email and password are required" });
+           }
 
             var result = await _supabaseService.SignInAsync(request);
             if (!result.Success)

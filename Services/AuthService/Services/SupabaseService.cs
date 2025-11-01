@@ -29,27 +29,47 @@ namespace AuthService.Services
     }          
 
         public async Task<AuthResponse> SignUpAsync(SignupRequest request)
+{
+    try
+    {
+        var session = await _supabaseClient.Auth.SignUp(request.Email, request.Password);
+
+        if (session?.User == null)
         {
-            var session = await _supabaseClient.Auth.SignUp(request.Email, request.Password);
-
-            if (session?.User == null)
-            {
-                return new AuthResponse
-                {
-                    Success = false,
-                    Message = "Signup failed"
-                };
-            }
-
             return new AuthResponse
             {
-                Success = true,
-                Message = "Signup successful",
-                AccessToken = session.AccessToken,
-                RefreshToken = session.RefreshToken,
-                UserId = session.User.Id
+                Success = false,
+                Message = "Signup failed. Maybe this email is already registered."
             };
         }
+
+        return new AuthResponse
+        {
+            Success = true,
+            Message = "Signup successful! Please check your email to confirm your account.",
+            UserId = session.User.Id
+        };
+    }
+    catch (Supabase.Gotrue.Exceptions.GotrueException ex)
+    {
+        // ex.Message contains JSON from the API like {"code":400,"error_code":"duplicate_email","msg":"Email already registered"}
+        if (ex.Message.Contains("duplicate_email") || ex.Message.Contains("already registered"))
+        {
+            return new AuthResponse
+            {
+                Success = false,
+                Message = "This email is already registered. Please sign in instead."
+            };
+        }
+
+        return new AuthResponse
+        {
+            Success = false,
+            Message = "Signup failed: " + ex.Message
+        };
+    }
+}
+
 
         public async Task<AuthResponse> SignInAsync(SigninRequest request)
         {

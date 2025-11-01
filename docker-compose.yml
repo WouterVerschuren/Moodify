@@ -3,7 +3,6 @@ services:
     build: ./Services/AudioService
     container_name: moodify-audioservice
     environment:
-      - SUPABASE_DB_CONNECTION=${SUPABASE_DB_CONNECTION}
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_SERVICE_ROLE=${SUPABASE_SERVICE_ROLE}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
