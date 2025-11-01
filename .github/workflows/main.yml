@@ -47,8 +47,8 @@ jobs:
         working-directory: ./Services/AudioService
         run: dotnet build --configuration Release --no-restore
 
-      - name: Test .NET backend 
-        working-directory: ./Services/AudioService
+      - name: Test .NET backend
+        working-directory: ./services/audioservice.tests
         run: dotnet test --no-build --verbosity normal
 
       - name: Log in to Docker Hub
