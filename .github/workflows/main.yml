@@ -108,4 +108,4 @@ jobs:
 
       - name: Deploy frontend to Vercel
         working-directory: ./MoodifyFrontend
-        run: vercel --prod --token ${{ secrets.VERCEL_TOKEN }} --confirm wouterverschuren --name moodifyfrontend
+        run: vercel --prod --token ${{ secrets.VERCEL_TOKEN }} --yes wouterverschuren --name moodifyfrontend
