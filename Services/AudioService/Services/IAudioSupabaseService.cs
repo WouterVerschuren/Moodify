@@ -8,5 +8,6 @@ namespace AudioService.Services
         Task<List<Song>> GetSongsAsync();
         Task<string?> GetSignedUrlAsync(string path, int expiresInSeconds = 3600);
         Task DeleteSongAsync(string storagePath);
+        Task<List<Song>> GetSongsByIdsAsync(IEnumerable<Guid> ids);
     }
 }

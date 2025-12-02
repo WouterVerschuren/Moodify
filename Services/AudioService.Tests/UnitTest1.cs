@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using System.IO;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System;
 
 
 public class AudioControllerTests
@@ -42,8 +43,8 @@ public class AudioControllerTests
         mockSupabase.Setup(s => s.GetSongsAsync())
             .ReturnsAsync(new List<Song>
             {
-            new Song { Id = 1, Title = "Song1", StoragePath = "song1.mp3" },
-            new Song { Id = 2, Title = "Song2", StoragePath = "song2.mp3" }
+            new Song { Id = Guid.NewGuid(), Title = "Song1", StoragePath = "song1.mp3" },
+            new Song { Id = Guid.NewGuid(), Title = "Song2", StoragePath = "song2.mp3" }
             });
 
         var controller = new AudioController(mockSupabase.Object);
@@ -80,14 +81,13 @@ public class AudioControllerTests
     [Fact]
     public async Task Upload_ReturnsOk_WhenFileProvided()
     {
-        // Arrange
         var mockSupabase = new Mock<ISupabaseService>();
         mockSupabase.Setup(s => s.UploadFileAsync(
             It.IsAny<IFormFile>(), 
             It.IsAny<string>(), 
             It.IsAny<string>(), 
             It.IsAny<string>()
-        )).ReturnsAsync(new Song { Id = 1, Title = "Test" });
+        )).ReturnsAsync(new Song { Id = Guid.NewGuid(), Title = "Test" });
 
         var controller = new AudioController(mockSupabase.Object);
 

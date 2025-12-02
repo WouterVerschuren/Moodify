@@ -1,0 +1,43 @@
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import "./PlaylistPage.css";
+
+const API_URL = "http://localhost:5001/api/playlists";
+
+const PlaylistPage = () => {
+  const [playlists, setPlaylists] = useState([]);
+
+  useEffect(() => {
+    fetchPlaylists();
+  }, []);
+
+  const fetchPlaylists = async () => {
+    try {
+      const res = await axios.get(API_URL);
+      setPlaylists(res.data);
+      console.log("Fetched playlists:", res.data);
+    } catch (err) {
+      console.error("Error fetching playlists:", err);
+    }
+  };
+
+  return (
+    <div className="playlist-page">
+      <h1>🎶 Playlists</h1>
+      <div className="playlist-list">
+        {playlists.length === 0 ? (
+          <p>No playlists yet!</p>
+        ) : (
+          playlists.map((playlist) => (
+            <div key={playlist.id} className="playlist-item">
+              <h3>{playlist.name}</h3>
+              <p>{playlist.songs.length} songs</p>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default PlaylistPage;

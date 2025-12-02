@@ -31,6 +31,29 @@ namespace AudioService.Controllers
             return Ok(new { message = "Song uploaded successfully!", song });
         }
 
+        [HttpGet("batch")]
+public async Task<IActionResult> GetBatch([FromQuery] string ids)
+{
+    if (string.IsNullOrEmpty(ids))
+        return BadRequest("No song IDs provided.");
+
+    var idList = ids.Split(',')
+                .Select(id => Guid.Parse(id)) 
+                .ToList();
+
+    var songs = await _supabase.GetSongsByIdsAsync(idList);
+
+    foreach (var song in songs)
+    {
+        var signedUrl = await _supabase.GetSignedUrlAsync(song.StoragePath);
+        if (!string.IsNullOrEmpty(signedUrl))
+            song.SignedUrl = signedUrl;
+    }
+
+    return Ok(songs);
+}
+
+
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {

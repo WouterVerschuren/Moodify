@@ -16,11 +16,11 @@ namespace AudioService.Services
 
         public SupabaseService()
         {
-            var url = Environment.GetEnvironmentVariable("SUPABASE_URL")
-                      ?? throw new Exception("SUPABASE_URL not set");
-            _serviceRoleKey = Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE")
-                      ?? throw new Exception("SUPABASE_SERVICE_ROLE not set");
-            _bucketName = Environment.GetEnvironmentVariable("SUPABASE_BUCKET") ?? "Moodify-Songs";
+            var url = Environment.GetEnvironmentVariable("SUPABASE_AUDIOSERVICE_URL")
+                      ?? throw new Exception("SUPABASE_AUDIOSERVICE_URL not set");
+            _serviceRoleKey = Environment.GetEnvironmentVariable("SUPABASE_AUDIOSERVICE_SERVICE_ROLE")
+                      ?? throw new Exception("SUPABASE_AUDIOSERVICE_SERVICE_ROLE not set");
+            _bucketName = Environment.GetEnvironmentVariable("SUPABASE_AUDIOSERVICE_BUCKET") ?? "Moodify-Songs";
 
             _restUrl = $"{url}/rest/v1/Songs";
             _supabase = new Supabase.Client(url, _serviceRoleKey);
@@ -59,6 +59,7 @@ namespace AudioService.Services
 
         var song = new Song
         {
+            Id = Guid.NewGuid(),
             Title = title,
             Artist = artist,
             StoragePath = uniqueFileName,
@@ -93,6 +94,7 @@ namespace AudioService.Services
         {
             var songJson = new
             {
+                id = song.Id,  
                 title = song.Title,
                 artist = song.Artist,
                 storagePath = song.StoragePath,
@@ -135,7 +137,6 @@ namespace AudioService.Services
     var songs = JsonSerializer.Deserialize<List<Song>>(respContent,
         new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<Song>();
         
-    // Add public Supabase storage URL in front of every song’s path
     string publicBaseUrl = "https://ntbhghwtfmgdorwevudq.supabase.co/storage/v1/object/public/Moodify-Songs/";
 
     foreach (var song in songs)
@@ -164,5 +165,36 @@ namespace AudioService.Services
             if (!response.IsSuccessStatusCode)
                 throw new Exception($"Supabase delete failed: {response.StatusCode} {respContent}");
         }
+
+        public async Task<List<Song>> GetSongsByIdsAsync(IEnumerable<Guid> ids)
+{
+    if (!ids.Any())
+        return new List<Song>();
+
+    var idsString = string.Join(",", ids.Select(id => $"\"{id}\""));
+
+    var request = new HttpRequestMessage(HttpMethod.Get, $"{_restUrl}?select=*&id=in.({idsString})");
+    request.Headers.Add("apikey", _serviceRoleKey);
+    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _serviceRoleKey);
+
+    var response = await _httpClient.SendAsync(request);
+    var respContent = await response.Content.ReadAsStringAsync();
+
+    if (!response.IsSuccessStatusCode)
+        throw new Exception($"Supabase fetch failed: {response.StatusCode} {respContent}");
+
+    var songs = JsonSerializer.Deserialize<List<Song>>(respContent,
+        new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<Song>();
+
+    string publicBaseUrl = "https://ntbhghwtfmgdorwevudq.supabase.co/storage/v1/object/public/Moodify-Songs/";
+    foreach (var song in songs)
+    {
+        if (!string.IsNullOrEmpty(song.StoragePath) && !song.StoragePath.StartsWith("http"))
+            song.StoragePath = $"{publicBaseUrl}{song.StoragePath}";
+    }
+
+    return songs;
+}
+
     }
 }

@@ -1,182 +1,189 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Play,
+  Pause,
+  SkipForward,
+  SkipBack,
+  Shuffle,
+  Repeat,
+  Music,
+} from "lucide-react";
 import "./AudioPlayer.css";
 
-const API_URL = "http://localhost:5000/api/audio";
-console.log("API_URL:", API_URL);
-
-const AudioPlayer = () => {
-  const [songs, setSongs] = useState([]);
-  const [currentSong, setCurrentSong] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [file, setFile] = useState(null);
-  const [title, setTitle] = useState("");
-  const [artist, setArtist] = useState("");
-  const [songMood, setSongMood] = useState("Happy");
+function AudioPlayer({
+  currentTrack,
+  currentPlaylist,
+  currentIndex,
+  onIndexChange,
+}) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [shuffle, setShuffle] = useState(false);
+  const [repeat, setRepeat] = useState(false);
+  const audioRef = useRef(null);
 
   useEffect(() => {
-    fetchSongs();
-  }, []);
+    if (audioRef.current) {
+      const handleTimeUpdate = () => setProgress(audioRef.current.currentTime);
+      const handleLoadedMetadata = () => setDuration(audioRef.current.duration);
+      const handleEnded = () => {
+        if (repeat) {
+          audioRef.current.play();
+        } else if (currentPlaylist.length > 1) {
+          handleNext();
+        } else {
+          setIsPlaying(false);
+        }
+      };
 
-  const fetchSongs = async () => {
-    try {
-      const res = await axios.get(API_URL);
-      setSongs(res.data);
-      console.log("Fetched songs:", res.data);
-    } catch (err) {
-      console.error("Error fetching songs:", err);
+      audioRef.current.addEventListener("timeupdate", handleTimeUpdate);
+      audioRef.current.addEventListener("loadedmetadata", handleLoadedMetadata);
+      audioRef.current.addEventListener("ended", handleEnded);
+
+      return () => {
+        if (audioRef.current) {
+          audioRef.current.removeEventListener("timeupdate", handleTimeUpdate);
+          audioRef.current.removeEventListener(
+            "loadedmetadata",
+            handleLoadedMetadata
+          );
+          audioRef.current.removeEventListener("ended", handleEnded);
+        }
+      };
+    }
+  }, [currentPlaylist, currentIndex, repeat]);
+
+  useEffect(() => {
+    if (currentTrack && audioRef.current && isPlaying) {
+      audioRef.current.play();
+    }
+  }, [currentTrack]);
+
+  const togglePlay = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
     }
   };
 
-  const handleSongSelect = (song) => {
-    setLoading(true);
-    setCurrentSong(song);
-    setLoading(false);
+  const handleNext = () => {
+    if (currentPlaylist.length === 0) return;
+    let nextIdx;
+    if (shuffle) {
+      nextIdx = Math.floor(Math.random() * currentPlaylist.length);
+    } else {
+      nextIdx = (currentIndex + 1) % currentPlaylist.length;
+    }
+    onIndexChange(nextIdx);
+    setIsPlaying(true);
   };
 
-  const handleDelete = async (song) => {
-    try {
-      await axios.delete(
-        `${API_URL}/${encodeURIComponent(song.storagePath.split("/").pop())}`
-      );
-      setSongs((prev) => prev.filter((s) => s.id !== song.id));
-      console.log(`✅ Deleted song: ${song.title}`);
-    } catch (err) {
-      console.error("Error deleting song:", err);
+  const handlePrev = () => {
+    if (currentPlaylist.length === 0) return;
+    const prevIdx =
+      currentIndex === 0 ? currentPlaylist.length - 1 : currentIndex - 1;
+    onIndexChange(prevIdx);
+    setIsPlaying(true);
+  };
+
+  const handleSeek = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percentage = x / rect.width;
+    const newTime = percentage * duration;
+    if (audioRef.current) {
+      audioRef.current.currentTime = newTime;
+      setProgress(newTime);
     }
   };
 
-  const handleUpload = async (e) => {
-    e.preventDefault();
-    if (!file || !title || !artist) {
-      console.error("⚠️ Please fill in all fields and select a file!");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("File", file);
-    formData.append("Title", title);
-    formData.append("Artist", artist);
-    formData.append("SongMood", songMood);
-
-    try {
-      setUploading(true);
-      const res = await axios.post(`${API_URL}/upload`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      console.log(`✅ Song uploaded: ${res.data.song.title}`);
-
-      // Refetch all songs from API to get correct data including signed URLs
-      fetchSongs();
-
-      // Reset form
-      setFile(null);
-      setTitle("");
-      setArtist("");
-      setSongMood("Happy");
-    } catch (err) {
-      console.error("❌ Upload failed:", err);
-    } finally {
-      setUploading(false);
-    }
+  const formatTime = (time) => {
+    if (isNaN(time)) return "0:00";
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (
-    <div className="app-container">
-      <header className="navbar">
-        <h1 className="logo">🎧 Moodify</h1>
-      </header>
+    <div className="audio-player">
+      <div className="audio-player-content">
+        {currentTrack ? (
+          <>
+            <div className="track-info">
+              <div className="track-icon">
+                <Music size={28} color="#fff" />
+              </div>
+              <div>
+                <div className="track-title">{currentTrack.title}</div>
+                <div className="track-artist">{currentTrack.artist}</div>
+              </div>
+            </div>
 
-      <main className="main-content">
-        {/* Upload Section */}
-        <section className="upload-section">
-          <h2>Add a new song</h2>
-          <form className="upload-form" onSubmit={handleUpload}>
-            <input
-              type="text"
-              placeholder="Song title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-            <input
-              type="text"
-              placeholder="Artist"
-              value={artist}
-              onChange={(e) => setArtist(e.target.value)}
-            />
-            <select
-              value={songMood}
-              onChange={(e) => setSongMood(e.target.value)}
-            >
-              <option>Happy</option>
-              <option>Sad</option>
-              <option>Chill</option>
-              <option>Energetic</option>
-            </select>
-
-            <label htmlFor="file-upload" className="custom-file-upload">
-              {file ? file.name : "🎵 Pick song file 🎵"}
-            </label>
-            <input
-              id="file-upload"
-              type="file"
-              accept="audio/mpeg"
-              onChange={(e) => setFile(e.target.files[0])}
-            />
-
-            <button type="submit" disabled={uploading}>
-              {uploading ? "Uploading..." : "Add Song"}
-            </button>
-          </form>
-        </section>
-
-        {/* Song List Section */}
-        <section className="song-list-section">
-          <h2>Available Songs</h2>
-          <div className="song-list">
-            {songs.map((song) => (
-              <div key={song.id} className="song-item">
-                <div
-                  className="song-info"
-                  onClick={() => handleSongSelect(song)}
-                >
-                  <span className="song-title">{song.title}</span> -{" "}
-                  <span className="song-artist">{song.artist}</span>
-                  <span
-                    className={`song-mood mood-${song.songMood.toLowerCase()}`}
-                  >
-                    {song.songMood}
-                  </span>
-                </div>
+            <div className="player-controls">
+              <div className="controls-buttons">
                 <button
-                  className="delete-btn"
-                  onClick={() => handleDelete(song)}
-                  disabled={loading}
+                  onClick={() => setShuffle(!shuffle)}
+                  className={`control-btn ${shuffle ? "active" : ""}`}
                 >
-                  ❌
+                  <Shuffle size={18} />
+                </button>
+                <button
+                  onClick={handlePrev}
+                  disabled={currentPlaylist.length <= 1}
+                  className="control-btn"
+                >
+                  <SkipBack size={22} />
+                </button>
+                <button onClick={togglePlay} className="play-btn">
+                  {isPlaying ? (
+                    <Pause size={24} />
+                  ) : (
+                    <Play size={24} className="play-icon" />
+                  )}
+                </button>
+                <button
+                  onClick={handleNext}
+                  disabled={currentPlaylist.length <= 1}
+                  className="control-btn"
+                >
+                  <SkipForward size={22} />
+                </button>
+                <button
+                  onClick={() => setRepeat(!repeat)}
+                  className={`control-btn ${repeat ? "active" : ""}`}
+                >
+                  <Repeat size={18} />
                 </button>
               </div>
-            ))}
-          </div>
-        </section>
-      </main>
 
-      {/* Bottom Audio Player */}
-      {currentSong && (
-        <footer className="audio-player-bar">
-          <div className="player-info">
-            <h3>{currentSong.title}</h3>
-            <p>{currentSong.artist}</p>
-          </div>
-          <audio controls key={currentSong.id} className="custom-audio">
-            <source src={currentSong.storagePath} type="audio/mpeg" />
-            Your browser does not support the audio element.
-          </audio>
-        </footer>
-      )}
+              <div className="progress-container">
+                <span className="time-display">{formatTime(progress)}</span>
+                <div onClick={handleSeek} className="progress-bar">
+                  <div
+                    className="progress-fill"
+                    style={{ width: `${(progress / duration) * 100}%` }}
+                  />
+                </div>
+                <span className="time-display time-end">
+                  {formatTime(duration)}
+                </span>
+              </div>
+            </div>
+
+            <div className="spacer" />
+            <audio ref={audioRef} src={currentTrack.storagePath} />
+          </>
+        ) : (
+          <div className="no-track">Select a song to start playing</div>
+        )}
+      </div>
     </div>
   );
-};
+}
 
 export default AudioPlayer;

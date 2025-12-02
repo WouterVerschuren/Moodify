@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using System.Threading.Tasks;
 using AuthService.Models;
 using AuthService.Services;
 
@@ -9,64 +8,41 @@ namespace AuthService.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly ISupabaseService _supabaseService;
+        private readonly ISupabaseAuthService _supabaseService;
+        private readonly IJWTService _jwtService;
 
-        public AuthController(ISupabaseService supabaseService)
+        public AuthController(ISupabaseAuthService supabaseService, IJWTService jwtService)
         {
             _supabaseService = supabaseService;
+            _jwtService = jwtService;
         }
 
-        [HttpPost("signup")]
-        public async Task<IActionResult> SignUp([FromForm] SignupRequest request)
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
-            {
-                return BadRequest(new { message = "Email and password are required" });
-            }
+            // check of user al bestaat
+            var existingUser = await _supabaseService.GetUserByEmailAsync(request.Email);
+            if (existingUser != null)
+                return BadRequest("User already exists");
 
-            var result = await _supabaseService.SignUpAsync(request);
-            if (!result.Success)
-            {
-                return BadRequest(new { message = result.Message });
-            }
+            // hash password en sla user op
+            var user = await _supabaseService.CreateUserAsync(request.Email, request.Password , request.Username);
 
-            return Ok(result);
+            // genereer JWT token
+            var token = _jwtService.GenerateToken(user);
+
+            return Ok(new { Token = token, User = user });
         }
 
-       [HttpPost("signin")]
-       public async Task<IActionResult> SignIn([FromForm] SigninRequest request)
-       {
-           if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
-           {
-               return BadRequest(new { message = "Email and password are required" });
-           }
-
-            var result = await _supabaseService.SignInAsync(request);
-            if (!result.Success)
-            {
-                return BadRequest(new { message = result.Message });
-            }
-
-            return Ok(result);
-        }
-
-        [HttpGet("me")]
-        public async Task<IActionResult> GetMe([FromHeader(Name = "Authorization")] string authorization)
+       [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            if (string.IsNullOrWhiteSpace(authorization) || !authorization.StartsWith("Bearer "))
-            {
-                return Unauthorized(new { message = "Authorization header missing or invalid" });
-            }
+            var user = await _supabaseService.GetUserByEmailAsync(request.Email);
+            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password , user.PasswordHash))
+                return Unauthorized("Invalid email or password");
 
-            var token = authorization.Substring("Bearer ".Length).Trim();
-
-            var userInfo = await _supabaseService.GetUserInfoAsync(token);
-            if (!userInfo.Success)
-            {
-                return Unauthorized(new { message = userInfo.Message });
-            }
-
-            return Ok(userInfo);
+            var token = _jwtService.GenerateToken(user);
+            return Ok(new { Token = token, User = user });
         }
     }
 }

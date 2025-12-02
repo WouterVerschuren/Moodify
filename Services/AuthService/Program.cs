@@ -29,8 +29,9 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
-// Register SupabaseService for DI
-builder.Services.AddSingleton<ISupabaseService, SupabaseService>();
+// Register Auth services for DI
+builder.Services.AddSingleton<ISupabaseAuthService, SupabaseAuthService>();
+builder.Services.AddSingleton<IJWTService, JWTService>();
 
 // Add Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
