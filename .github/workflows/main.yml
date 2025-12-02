@@ -48,7 +48,7 @@ jobs:
         run: dotnet build --configuration Release --no-restore
 
       - name: Test .NET backend
-        working-directory: ./services/audioservice.tests
+        working-directory: ./Services/AudioService.Tests
         run: dotnet test --no-build --verbosity normal
 
       - name: Log in to Docker Hub
@@ -102,3 +102,10 @@ jobs:
         run: |
           docker push wouter525/moodify-frontend:latest
           docker push wouter525/moodify-frontend:${{ github.sha }}
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Deploy frontend to Vercel
+        working-directory: ./MoodifyFrontend
+        run: vercel --prod --token ${{ secrets.VERCEL_TOKEN }} --yes
