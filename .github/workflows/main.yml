@@ -7,14 +7,26 @@ on:
   pull_request:
     branches:
       - main
-  workflow_dispatch:  
+  workflow_dispatch:
+
+env:
+  ACR_NAME: moodifyacr1764849759
+  ACR_LOGIN_SERVER: moodifyacr1764849759.azurecr.io
+
+  SERVICES_JSON: |
+    [
+      {"name": "frontend", "path": "frontend"},
+      {"name": "audioservice", "path": "services/audioservice"},
+      {"name": "playlistservice", "path": "services/playlistservice"},
+      {"name": "authservice", "path": "services/authservice"},
+      {"name": "userservice", "path": "services/userservice"}
+    ]
 
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      audio-service: ${{ steps.filter.outputs.audio-service }}
-      frontend: ${{ steps.filter.outputs.frontend }}
+      changes: ${{ steps.set.outputs.changes }}
     steps:
       - uses: actions/checkout@v3
 
@@ -22,90 +34,94 @@ jobs:
         uses: dorny/paths-filter@v2
         with:
           filters: |
-            audio-service:
-              - 'Services/AudioService/**'
             frontend:
-              - 'MoodifyFrontend/**'
+              - 'frontend/**'
+            audioservice:
+              - 'services/audioservice/**'
+            playlistservice:
+              - 'services/playlistservice/**'
+            authservice:
+              - 'services/authservice/**'
+            userservice:
+              - 'services/userservice/**'
 
-  build-audio:
+      - id: set
+        run: echo "changes=${{ toJSON(steps.filter.outputs) }}" >> $GITHUB_OUTPUT
+
+  build-and-push:
     needs: detect-changes
-    if: needs.detect-changes.outputs.audio-service == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: 8.0.x
-
-      - name: Restore .NET dependencies
-        working-directory: ./Services/AudioService
-        run: dotnet restore
-
-      - name: Build .NET backend
-        working-directory: ./Services/AudioService
-        run: dotnet build --configuration Release --no-restore
-
-      - name: Test .NET backend
-        working-directory: ./Services/AudioService.Tests
-        run: dotnet test --no-build --verbosity normal
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build backend Docker image
-        run: |
-          docker build -t wouter525/moodify-audioservice:latest ./Services/AudioService
-          docker tag wouter525/moodify-audioservice:latest wouter525/moodify-audioservice:${{ github.sha }}
-
-      - name: Push backend Docker image
-        run: |
-          docker push wouter525/moodify-audioservice:latest
-          docker push wouter525/moodify-audioservice:${{ github.sha }}
-
-  build-frontend:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Setup Node
+      
+      - name: Set up Node
         uses: actions/setup-node@v3
         with:
           node-version: 20
 
-      - name: Install frontend dependencies
-        working-directory: ./MoodifyFrontend
-        run: npm ci
-
-      - name: Build frontend
-        working-directory: ./MoodifyFrontend
-        run: npm run build
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          dotnet-version: 8.0.x
 
-      - name: Build frontend Docker image
+      - name: Log in to Azure Container Registry
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ env.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push services
         run: |
-          docker build -t wouter525/moodify-frontend:latest ./MoodifyFrontend
-          docker tag wouter525/moodify-frontend:latest wouter525/moodify-frontend:${{ github.sha }}
+          SERVICES=$(echo '${{ env.SERVICES_JSON }}' | jq -c '.[]')
+          CHANGES='${{ needs.detect-changes.outputs.changes }}'
 
-      - name: Push frontend Docker image
+          for SERVICE in $SERVICES; do
+            NAME=$(echo $SERVICE | jq -r '.name')
+            PATH=$(echo $SERVICE | jq -r '.path')
+
+            CHANGED=$(echo $CHANGES | jq -r --arg NAME "$NAME" '.[$NAME]')
+
+            if [ "$CHANGED" != "true" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+              echo "Skipping $NAME (no changes)"
+              continue
+            fi
+
+            echo "Building $NAME"
+
+            if [[ "$PATH" == services/* ]]; then
+              dotnet restore $PATH
+              dotnet build --configuration Release $PATH
+            fi
+
+            if [ "$NAME" = "frontend" ]; then
+              npm ci --prefix $PATH
+              npm run build --prefix $PATH
+            fi
+
+            echo "Building Docker image for $NAME"
+            docker build -t ${{ env.ACR_LOGIN_SERVER }}/$NAME:latest $PATH
+            docker push ${{ env.ACR_LOGIN_SERVER }}/$NAME:latest
+          done
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Get AKS credentials
+        run: az aks get-credentials --resource-group ${{ secrets.AKS_RG }} --name ${{ secrets.AKS_NAME }} --overwrite-existing
+
+      - name: Update Kubernetes deployments
         run: |
-          docker push wouter525/moodify-frontend:latest
-          docker push wouter525/moodify-frontend:${{ github.sha }}
+          SERVICES=$(echo '${{ env.SERVICES_JSON }}' | jq -c '.[]')
 
-      - name: Install Vercel CLI
-        run: npm install -g vercel
-
-      - name: Deploy frontend to Vercel
-        working-directory: ./MoodifyFrontend
-        run: vercel --prod --token ${{ secrets.VERCEL_TOKEN }} --yes
+          for SERVICE in $SERVICES; do
+            NAME=$(echo $SERVICE | jq -r '.name')
+            echo "Updating deployment $NAME"
+            kubectl set image deployment/$NAME $NAME=${{ env.ACR_LOGIN_SERVER }}/$NAME:latest || true
+          done
