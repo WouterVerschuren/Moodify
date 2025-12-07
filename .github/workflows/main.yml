@@ -46,7 +46,10 @@ jobs:
               - 'services/userservice/**'
 
       - id: set
-        run: echo "changes=${{ toJSON(steps.filter.outputs) }}" >> $GITHUB_OUTPUT
+        run: |
+          # Convert the filter outputs to a single-line JSON string
+          CHANGES=$(echo '${{ steps.filter.outputs }}' | jq -c '.')
+          echo "changes=$CHANGES" >> $GITHUB_OUTPUT
 
   build-and-push:
     needs: detect-changes
