@@ -6,5 +6,6 @@ namespace AuthService.Services
     {
         Task<User> CreateUserAsync(string email, string password, string username);
         Task<User?> GetUserByEmailAsync(string email);
+        Task<User?> GetUserByIdAsync(Guid id);
     }
 }

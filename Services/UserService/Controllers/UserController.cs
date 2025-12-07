@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
 using UserService.Models;
 using UserService.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace UserService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
@@ -13,6 +15,10 @@ namespace UserService.Controllers
         {
             _userService = userService;
         }
+
+        [HttpGet("health")]
+        [AllowAnonymous]
+        public IActionResult Get() => Ok(new { status = "Healthy" });
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetUser(Guid id)
@@ -56,6 +62,34 @@ namespace UserService.Controllers
         {
             await _userService.DeleteUserAsync(id);
             return NoContent();
+        }
+
+        [HttpPost("{userId}/songs/{songId}")]
+        public async Task<IActionResult> AddSongToUser(Guid userId, Guid songId)
+        {
+            await _userService.AddSongToUserAsync(userId, songId);
+            return Ok("Song added to user");
+        }
+        
+        [HttpDelete("{userId}/songs/{songId}")]
+        public async Task<IActionResult> RemoveSongFromUser(Guid userId, Guid songId)
+        {
+            await _userService.RemoveSongFromUserAsync(userId, songId);
+            return Ok("Song removed from user");
+        }
+        
+        [HttpPost("{userId}/playlists/{playlistId}")]
+        public async Task<IActionResult> AddPlaylistToUser(Guid userId, Guid playlistId)
+        {
+            await _userService.AddPlaylistToUserAsync(userId, playlistId);
+            return Ok("Playlist added to user");
+        }
+        
+        [HttpDelete("{userId}/playlists/{playlistId}")]
+        public async Task<IActionResult> RemovePlaylistFromUser(Guid userId, Guid playlistId)
+        {
+            await _userService.RemovePlaylistFromUserAsync(userId, playlistId);
+            return Ok("Playlist removed from user");
         }
     }
 }

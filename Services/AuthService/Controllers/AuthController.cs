@@ -17,32 +17,72 @@ namespace AuthService.Controllers
             _jwtService = jwtService;
         }
 
+        [HttpGet("health")]
+        public IActionResult Get() => Ok(new { status = "Healthy" });
+
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
-            // check of user al bestaat
             var existingUser = await _supabaseService.GetUserByEmailAsync(request.Email);
             if (existingUser != null)
                 return BadRequest("User already exists");
 
-            // hash password en sla user op
-            var user = await _supabaseService.CreateUserAsync(request.Email, request.Password , request.Username);
-
-            // genereer JWT token
+            var user = await _supabaseService.CreateUserAsync(request.Email, request.Password, request.Username);
             var token = _jwtService.GenerateToken(user);
 
-            return Ok(new { Token = token, User = user });
+            Response.Cookies.Append("jwt", token, new CookieOptions
+            {
+                HttpOnly = true,
+                SameSite = SameSiteMode.Lax,
+                Secure = false, // for HTTP testing
+                Path = "/",
+                Expires = DateTime.UtcNow.AddDays(7)
+            });
+
+            return Ok(new { user });
         }
 
-       [HttpPost("login")]
+        [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
             var user = await _supabaseService.GetUserByEmailAsync(request.Email);
-            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password , user.PasswordHash))
+            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
                 return Unauthorized("Invalid email or password");
 
-            var token = _jwtService.GenerateToken(user);
-            return Ok(new { Token = token, User = user });
+            var jwtToken = _jwtService.GenerateToken(user);
+
+            Response.Cookies.Append("jwt", jwtToken, new CookieOptions
+            {
+                HttpOnly = true,
+                SameSite = SameSiteMode.Lax,
+                Secure = false, // for HTTP testing
+                Path = "/",
+                Expires = DateTime.UtcNow.AddDays(7)
+            });
+
+            return Ok(new { user });
+        }
+
+        [HttpGet("verify")]
+        public async Task<IActionResult> Verify()
+        {
+            var jwt = Request.Cookies["jwt"];
+            if (string.IsNullOrEmpty(jwt)) return Unauthorized(new { error = "No token" });
+
+            var userId = _jwtService.ValidateToken(jwt);
+            if (userId == null) return Unauthorized(new { error = "Invalid token" });
+
+            var user = await _supabaseService.GetUserByIdAsync(userId.Value);
+            if (user == null) return Unauthorized(new { error = "User not found" });
+
+            return Ok(new { user });
+        }
+
+        [HttpPost("logout")]
+        public IActionResult Logout()
+        {
+            Response.Cookies.Delete("jwt");
+            return Ok(new { message = "Logged out successfully" });
         }
     }
 }

@@ -21,6 +21,9 @@ public class PlaylistController : ControllerBase
                             ?? throw new Exception("AUDIO_SERVICE_URL not set");
     }
 
+    [HttpGet("health")]
+    public IActionResult Get() => Ok(new { status = "Healthy" });
+
     [HttpPost("create")]
     public async Task<IActionResult> CreatePlaylist([FromBody] CreatePlaylistDto dto)
     {

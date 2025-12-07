@@ -2,9 +2,11 @@ import React, { useState } from "react";
 import { Play, Music, Upload } from "lucide-react";
 import "./SongsPage.css";
 
-const API_AUDIO = "http://localhost:5000/api/audio";
+const API_HOST = "http://4.251.168.14.nip.io";
 
-function SongsPage({ songs, onSongsFetch, onPlaySong }) {
+const API_AUDIO = `${API_HOST}/api/Audio`;
+
+export default function SongsPage({ songs, onSongsFetch, onPlaySong }) {
   const [uploadForm, setUploadForm] = useState({
     title: "",
     artist: "",
@@ -25,7 +27,11 @@ function SongsPage({ songs, onSongsFetch, onPlaySong }) {
 
     try {
       setUploading(true);
-      await fetch(`${API_AUDIO}/upload`, { method: "POST", body: formData });
+      await fetch(`${API_AUDIO}/upload`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
       setUploadForm({ title: "", artist: "", songMood: "Happy" });
       setSelectedFile(null);
       onSongsFetch();
@@ -123,5 +129,3 @@ function SongsPage({ songs, onSongsFetch, onPlaySong }) {
     </div>
   );
 }
-
-export default SongsPage;

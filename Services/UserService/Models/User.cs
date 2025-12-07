@@ -8,7 +8,7 @@ namespace UserService.Models
     public class User
     {
         [Key]
-        public Guid Id { get; set; }
+        public Guid id { get; set; }
 
         [Required]
         [MaxLength(20)]

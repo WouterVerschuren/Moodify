@@ -10,5 +10,12 @@ namespace UserService.Services
         Task<List<User>> GetAllUsersAsync();
         Task<User> UpdateUserAsync(Guid id, string? username, string? email);
         Task DeleteUserAsync(Guid id);
+
+
+        // Methods for managing user-song and user-playlist relationships
+        Task AddSongToUserAsync(Guid userId, Guid songId);
+        Task RemoveSongFromUserAsync(Guid userId, Guid songId);
+        Task AddPlaylistToUserAsync(Guid userId, Guid playlistId);
+        Task RemovePlaylistFromUserAsync(Guid userId, Guid playlistId);
     }
 }

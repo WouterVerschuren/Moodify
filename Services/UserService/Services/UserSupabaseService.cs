@@ -12,9 +12,10 @@ namespace UserService.Services
 {
     public class SupabaseUserService : IUserService
     {
-        private readonly Supabase.Client _supabase;
         private readonly HttpClient _httpClient;
-        private readonly string _restUrl;
+        private readonly string _restUrlUsers;
+        private readonly string _restUrlUserSongs;
+        private readonly string _restUrlUserPlaylists;
         private readonly string _serviceRoleKey;
 
         public SupabaseUserService()
@@ -24,20 +25,19 @@ namespace UserService.Services
             _serviceRoleKey = Environment.GetEnvironmentVariable("SUPABASE_USERSERVICE_SERVICE_ROLE")
                       ?? throw new Exception("SUPABASE_USERSERVICE_SERVICE_ROLE not set");
 
-            _restUrl = $"{url}/rest/v1/Users";
-            _supabase = new Supabase.Client(url, _serviceRoleKey);
-            _supabase.InitializeAsync().GetAwaiter().GetResult();
+            _restUrlUsers = $"{url}/rest/v1/Users";
+            _restUrlUserSongs = $"{url}/rest/v1/UserSongs";
+            _restUrlUserPlaylists = $"{url}/rest/v1/UserPlaylists";
 
             _httpClient = new HttpClient();
         }
 
         public async Task<User> CreateUserAsync(string email, string username)
         {
-            var userJson = new { email, username };
-            var json = JsonSerializer.Serialize(userJson);
+            var json = JsonSerializer.Serialize(new { email, username });
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var request = new HttpRequestMessage(HttpMethod.Post, _restUrl)
+            var request = new HttpRequestMessage(HttpMethod.Post, _restUrlUsers)
             {
                 Content = content
             };
@@ -54,7 +54,7 @@ namespace UserService.Services
 
         public async Task<User?> GetUserByIdAsync(Guid id)
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, $"{_restUrl}?select=*&id=eq.{id}");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{_restUrlUsers}?select=*&id=eq.{id}");
             request.Headers.Add("apikey", _serviceRoleKey);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _serviceRoleKey);
 
@@ -68,7 +68,7 @@ namespace UserService.Services
 
         public async Task<User?> GetUserByEmailAsync(string email)
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, $"{_restUrl}?select=*&email=eq.{email}");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{_restUrlUsers}?select=*&email=eq.{email}");
             request.Headers.Add("apikey", _serviceRoleKey);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _serviceRoleKey);
 
@@ -82,7 +82,7 @@ namespace UserService.Services
 
         public async Task<List<User>> GetAllUsersAsync()
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, $"{_restUrl}?select=*");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{_restUrlUsers}?select=*");
             request.Headers.Add("apikey", _serviceRoleKey);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _serviceRoleKey);
 
@@ -95,11 +95,10 @@ namespace UserService.Services
 
         public async Task<User> UpdateUserAsync(Guid id, string? username, string? email)
         {
-            var updateJson = new { username, email };
-            var json = JsonSerializer.Serialize(updateJson);
+            var json = JsonSerializer.Serialize(new { username, email });
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var request = new HttpRequestMessage(HttpMethod.Patch, $"{_restUrl}?id=eq.{id}")
+            var request = new HttpRequestMessage(HttpMethod.Patch, $"{_restUrlUsers}?id=eq.{id}")
             {
                 Content = content
             };
@@ -116,7 +115,61 @@ namespace UserService.Services
 
         public async Task DeleteUserAsync(Guid id)
         {
-            var request = new HttpRequestMessage(HttpMethod.Delete, $"{_restUrl}?id=eq.{id}");
+            var request = new HttpRequestMessage(HttpMethod.Delete, $"{_restUrlUsers}?id=eq.{id}");
+            request.Headers.Add("apikey", _serviceRoleKey);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _serviceRoleKey);
+
+            var response = await _httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+        }
+
+        public async Task AddSongToUserAsync(Guid userId, Guid songId)
+        {
+            var json = JsonSerializer.Serialize(new { userId, songId });
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var request = new HttpRequestMessage(HttpMethod.Post, _restUrlUserSongs)
+            {
+                Content = content
+            };
+            request.Headers.Add("apikey", _serviceRoleKey);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _serviceRoleKey);
+
+            var response = await _httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+        }
+
+        public async Task RemoveSongFromUserAsync(Guid userId, Guid songId)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Delete,
+                $"{_restUrlUserSongs}?userId=eq.{userId}&songId=eq.{songId}");
+            request.Headers.Add("apikey", _serviceRoleKey);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _serviceRoleKey);
+
+            var response = await _httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+        }
+
+        public async Task AddPlaylistToUserAsync(Guid userId, Guid playlistId)
+        {
+            var json = JsonSerializer.Serialize(new { userId, playlistId });
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var request = new HttpRequestMessage(HttpMethod.Post, _restUrlUserPlaylists)
+            {
+                Content = content
+            };
+            request.Headers.Add("apikey", _serviceRoleKey);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _serviceRoleKey);
+
+            var response = await _httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+        }
+
+        public async Task RemovePlaylistFromUserAsync(Guid userId, Guid playlistId)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Delete,
+                $"{_restUrlUserPlaylists}?userId=eq.{userId}&playlistId=eq.{playlistId}");
             request.Headers.Add("apikey", _serviceRoleKey);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _serviceRoleKey);
 

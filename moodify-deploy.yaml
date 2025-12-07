@@ -1,0 +1,340 @@
+# =====================
+# AudioService
+# =====================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: audioservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: audioservice
+  template:
+    metadata:
+      labels:
+        app: audioservice
+    spec:
+      containers:
+        - name: audioservice
+          image: moodifyacr1764849759.azurecr.io/audioservice:latest
+          ports:
+            - containerPort: 9000
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: ASPNETCORE_URLS
+              value: "http://+:9000"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: moodify-secrets
+                  key: JWT_SECRET
+            - name: SUPABASE_AUDIOSERVICE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: moodify-secrets
+                  key: SUPABASE_AUDIOSERVICE_URL
+            - name: SUPABASE_AUDIOSERVICE_SERVICE_ROLE
+              valueFrom:
+                secretKeyRef:
+                  name: moodify-secrets
+                  key: SUPABASE_AUDIOSERVICE_SERVICE_ROLE
+            - name: SUPABASE_AUDIOSERVICE_ANON_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: moodify-secrets
+                  key: SUPABASE_AUDIOSERVICE_ANON_KEY
+            - name: SUPABASE_AUDIOSERVICE_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: moodify-secrets
+                  key: SUPABASE_AUDIOSERVICE_BUCKET
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: audioservice
+spec:
+  type: ClusterIP
+  selector:
+    app: audioservice
+  ports:
+    - protocol: TCP
+      port: 9000
+      targetPort: 9000
+
+# =====================
+# PlaylistService
+# =====================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: playlistservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: playlistservice
+  template:
+    metadata:
+      labels:
+        app: playlistservice
+    spec:
+      containers:
+        - name: playlistservice
+          image: moodifyacr1764849759.azurecr.io/playlistservice:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: moodify-secrets
+                  key: JWT_SECRET
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: AUDIO_SERVICE_URL
+              value: http://audioservice:9000
+            - name: SUPABASE_PLAYLISTSERVICE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: moodify-secrets
+                  key: SUPABASE_PLAYLISTSERVICE_URL
+            - name: SUPABASE_PLAYLISTSERVICE_SERVICE_ROLE
+              valueFrom:
+                secretKeyRef:
+                  name: moodify-secrets
+                  key: SUPABASE_PLAYLISTSERVICE_SERVICE_ROLE
+            - name: SUPABASE_PLAYLISTSERVICE_ANON_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: moodify-secrets
+                  key: SUPABASE_PLAYLISTSERVICE_ANON_KEY
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: playlistservice
+spec:
+  type: ClusterIP
+  selector:
+    app: playlistservice
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+
+# =====================
+# AuthService
+# =====================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: authservice
+  template:
+    metadata:
+      labels:
+        app: authservice
+    spec:
+      containers:
+        - name: authservice
+          image: moodifyacr1764849759.azurecr.io/authservice:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: moodify-secrets
+                  key: JWT_SECRET
+            - name: SUPABASE_USERSERVICE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: moodify-secrets
+                  key: SUPABASE_USERSERVICE_URL
+            - name: SUPABASE_USERSERVICE_SERVICE_ROLE
+              valueFrom:
+                secretKeyRef:
+                  name: moodify-secrets
+                  key: SUPABASE_USERSERVICE_SERVICE_ROLE
+            - name: SUPABASE_USERSERVICE_ANON_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: moodify-secrets
+                  key: SUPABASE_USERSERVICE_ANON_KEY
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authservice
+spec:
+  type: ClusterIP
+  selector:
+    app: authservice
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+
+# =====================
+# UserService
+# =====================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: userservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: userservice
+  template:
+    metadata:
+      labels:
+        app: userservice
+    spec:
+      containers:
+        - name: userservice
+          image: moodifyacr1764849759.azurecr.io/userservice:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: ASPNETCORE_URLS
+              value: "http://+:8000"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: moodify-secrets
+                  key: JWT_SECRET
+            - name: SUPABASE_USERSERVICE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: moodify-secrets
+                  key: SUPABASE_USERSERVICE_URL
+            - name: SUPABASE_USERSERVICE_SERVICE_ROLE
+              valueFrom:
+                secretKeyRef:
+                  name: moodify-secrets
+                  key: SUPABASE_USERSERVICE_SERVICE_ROLE
+            - name: SUPABASE_USERSERVICE_ANON_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: moodify-secrets
+                  key: SUPABASE_USERSERVICE_ANON_KEY
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: userservice
+spec:
+  type: ClusterIP
+  selector:
+    app: userservice
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+
+# =====================
+# Frontend
+# =====================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: moodifyacr1764849759.azurecr.io/frontend:latest
+          ports:
+            - containerPort: 80
+          env:
+            - name: ASPNETCORE_URLS
+              value: "http://+:80"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  type: LoadBalancer
+  selector:
+    app: frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+
+# =====================
+# Ingress
+# =====================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: moodify-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 100m
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: "4.251.168.14.nip.io"
+      http:
+        paths:
+          - path: /api/Audio
+            pathType: Prefix
+            backend:
+              service:
+                name: audioservice
+                port:
+                  number: 9000
+          - path: /api/Playlist
+            pathType: Prefix
+            backend:
+              service:
+                name: playlistservice
+                port:
+                  number: 8080
+          - path: /api/Auth
+            pathType: Prefix
+            backend:
+              service:
+                name: authservice
+                port:
+                  number: 8080
+          - path: /api/User
+            pathType: Prefix
+            backend:
+              service:
+                name: userservice
+                port:
+                  number: 8000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

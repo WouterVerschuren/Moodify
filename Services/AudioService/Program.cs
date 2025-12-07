@@ -1,24 +1,35 @@
 using Microsoft.OpenApi.Models;
 using AudioService.Services;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using Microsoft.AspNetCore.Http.Features;
 
 DotNetEnv.Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 100 * 1024 * 1024; 
+});
+
+builder.WebHost.UseUrls("http://0.0.0.0:9000");
+
 // Add CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
-    {   
-        policy.WithOrigins("http://localhost:3000")
+    {
+        policy.WithOrigins("http://localhost:3000","http://4.251.168.14.nip.io") 
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
     });
 });
 
-// Add controllers with enum as string serialization
+// Controllers with enum as string serialization
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -28,6 +39,36 @@ builder.Services.AddControllers()
 // Register SupabaseService via interface
 builder.Services.AddSingleton<ISupabaseService, SupabaseService>();
 
+// JWT Authentication
+builder.Services.AddAuthentication("JwtAuth")
+    .AddJwtBearer("JwtAuth", options =>
+    {
+        options.SaveToken = true;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWT_SECRET")!)
+            ),
+            ValidateIssuer = false,
+            ValidateAudience = false
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var token = context.Request.Cookies["jwt"];
+                if (!string.IsNullOrEmpty(token))
+                {
+                    context.Token = token;
+                }
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -38,26 +79,23 @@ builder.Services.AddSwaggerGen(c =>
         Description = "Upload songs with Supabase"
     });
 
-    // Show enums as strings in Swagger UI
     c.UseInlineDefinitionsForEnums();
 });
 
 var app = builder.Build();
 
-// Use CORS before anything else
+// Middleware
 app.UseCors("AllowReactApp");
-
-if (app.Environment.IsDevelopment())
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseDeveloperExceptionPage();
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Moodify API V1");
-    });
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "AudioService API v1");
+});
 
-app.UseHttpsRedirection();
+
+app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
+
 app.Run();
