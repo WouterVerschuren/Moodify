@@ -45,11 +45,15 @@ jobs:
             userservice:
               - 'services/userservice/**'
 
-      - id: set
-        run: |
-          # Convert the filter outputs to a single-line JSON string
-          CHANGES=$(echo '${{ steps.filter.outputs }}' | jq -c '.')
-          echo "changes=$CHANGES" >> $GITHUB_OUTPUT
+- id: set
+  run: |
+    # Build JSON manually from the filter outputs
+    echo "changes={\"frontend\": \"${{ steps.filter.outputs.frontend }}\", \
+\"audioservice\": \"${{ steps.filter.outputs.audioservice }}\", \
+\"playlistservice\": \"${{ steps.filter.outputs.playlistservice }}\", \
+\"authservice\": \"${{ steps.filter.outputs.authservice }}\", \
+\"userservice\": \"${{ steps.filter.outputs.userservice }}\"}" >> $GITHUB_OUTPUT
+
 
   build-and-push:
     needs: detect-changes
