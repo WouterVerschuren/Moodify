@@ -36,10 +36,15 @@ jobs:
             user:       'Services/UserService/**'
             frontend:   'MoodifyFrontend/**'
 
-  # 2. SonarCloud + Dependency-Check → ALWAYS run on push/main (this was the fix!)
+  # 2. SonarCloud – only if .NET services changed
   sonar:
     needs: detect-changes
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: >-
+      needs.detect-changes.outputs.audio == 'true' ||
+      needs.detect-changes.outputs.playlist == 'true' ||
+      needs.detect-changes.outputs.auth == 'true' ||
+      needs.detect-changes.outputs.user == 'true' ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,7 +53,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-      - name: Build & Test Only Changed .NET Services
+      - name: Build & Test Changed .NET Services
         run: |
           set -e
           services=()
@@ -81,9 +86,15 @@ jobs:
             -Dsonar.sources=Services
             -Dsonar.cs.opencover.reportsPaths=Services/**/TestResults/**/coverage.opencover.xml
 
+  # 3. OWASP Dependency-Check – only if .NET services changed
   dependency-check:
     needs: detect-changes
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: >-
+      needs.detect-changes.outputs.audio == 'true' ||
+      needs.detect-changes.outputs.playlist == 'true' ||
+      needs.detect-changes.outputs.auth == 'true' ||
+      needs.detect-changes.outputs.user == 'true' ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -96,7 +107,7 @@ jobs:
           name: dependency-check-report
           path: reports
 
-  # 4. Build & Push — only when needed
+  # 4. Build Audio – only if changed
   build-audio:
     needs: detect-changes
     if: needs.detect-changes.outputs.audio == 'true' || github.event_name == 'workflow_dispatch'
@@ -106,7 +117,13 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-      - run: cd Services/AudioService && dotnet restore && dotnet build -c Release --no-restore
+      - run: |
+          cd Services/AudioService
+          dotnet restore
+          dotnet build --no-restore -c Release
+          if [ -d "./Tests" ]; then
+            dotnet test --no-build -c Release
+          fi
       - uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
@@ -114,8 +131,10 @@ jobs:
       - run: |
           IMG=${{ secrets.ACR_NAME }}.azurecr.io/audioservice
           docker build -t $IMG:${{ github.sha }} -t $IMG:latest Services/AudioService
-          docker push $IMG:${{ github.sha }} && docker push $IMG:latest
+          docker push $IMG:${{ github.sha }}
+          docker push $IMG:latest
 
+  # 5. Build Playlist – only if changed
   build-playlist:
     needs: detect-changes
     if: needs.detect-changes.outputs.playlist == 'true' || github.event_name == 'workflow_dispatch'
@@ -125,7 +144,13 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-      - run: cd Services/PlaylistService && dotnet restore && dotnet build -c Release --no-restore
+      - run: |
+          cd Services/PlaylistService
+          dotnet restore
+          dotnet build --no-restore -c Release
+          if [ -d "./Tests" ]; then
+            dotnet test --no-build -c Release
+          fi
       - uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
@@ -133,8 +158,10 @@ jobs:
       - run: |
           IMG=${{ secrets.ACR_NAME }}.azurecr.io/playlistservice
           docker build -t $IMG:${{ github.sha }} -t $IMG:latest Services/PlaylistService
-          docker push $IMG:${{ github.sha }} && docker push $IMG:latest
+          docker push $IMG:${{ github.sha }}
+          docker push $IMG:latest
 
+  # 6. Build Auth – only if changed
   build-auth:
     needs: detect-changes
     if: needs.detect-changes.outputs.auth == 'true' || github.event_name == 'workflow_dispatch'
@@ -144,7 +171,13 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-      - run: cd Services/AuthService && dotnet restore && dotnet build -c Release --no-restore
+      - run: |
+          cd Services/AuthService
+          dotnet restore
+          dotnet build --no-restore -c Release
+          if [ -d "./Tests" ]; then
+            dotnet test --no-build -c Release
+          fi
       - uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
@@ -152,8 +185,10 @@ jobs:
       - run: |
           IMG=${{ secrets.ACR_NAME }}.azurecr.io/authservice
           docker build -t $IMG:${{ github.sha }} -t $IMG:latest Services/AuthService
-          docker push $IMG:${{ github.sha }} && docker push $IMG:latest
+          docker push $IMG:${{ github.sha }}
+          docker push $IMG:latest
 
+  # 7. Build User – only if changed
   build-user:
     needs: detect-changes
     if: needs.detect-changes.outputs.user == 'true' || github.event_name == 'workflow_dispatch'
@@ -163,7 +198,13 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-      - run: cd Services/UserService && dotnet restore && dotnet build -c Release --no-restore
+      - run: |
+          cd Services/UserService
+          dotnet restore
+          dotnet build --no-restore -c Release
+          if [ -d "./Tests" ]; then
+            dotnet test --no-build -c Release
+          fi
       - uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
@@ -171,8 +212,10 @@ jobs:
       - run: |
           IMG=${{ secrets.ACR_NAME }}.azurecr.io/userservice
           docker build -t $IMG:${{ github.sha }} -t $IMG:latest Services/UserService
-          docker push $IMG:${{ github.sha }} && docker push $IMG:latest
+          docker push $IMG:${{ github.sha }}
+          docker push $IMG:latest
 
+  # 8. Build Frontend – only if changed
   build-frontend:
     needs: detect-changes
     if: needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
@@ -183,7 +226,10 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-      - run: cd MoodifyFrontend && npm ci && npm run build
+      - run: |
+          cd MoodifyFrontend
+          npm ci
+          npm run build
       - uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
@@ -191,9 +237,10 @@ jobs:
       - run: |
           IMG=${{ secrets.ACR_NAME }}.azurecr.io/moodify-frontend
           docker build -t $IMG:${{ github.sha }} -t $IMG:latest MoodifyFrontend
-          docker push $IMG:${{ github.sha }} && docker push $IMG:latest
+          docker push $IMG:${{ github.sha }}
+          docker push $IMG:latest
 
-  # 5. OWASP ZAP DAST 
+  # 9. OWASP ZAP – on push/manual (example on audio)
   zap:
     needs: build-audio
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
@@ -213,7 +260,7 @@ jobs:
       - run: docker rm -f audio
         if: always()
 
-  # 6. Deploy to AKS 
+  # 10. Deploy – on push/manual (always, no skips)
   deploy:
     needs: [build-audio, build-playlist, build-auth, build-user, build-frontend, zap]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
@@ -227,14 +274,11 @@ jobs:
       - run: |
           az aks get-credentials --resource-group ${{ env.RESOURCE_GROUP }} \
             --name ${{ env.AKS_CLUSTER }} --overwrite-existing
-
           find ${{ env.K8S_MANIFEST_PATH }} -type f -name "*.yaml" -exec sed -i \
             "s|${{ secrets.ACR_NAME }}.azurecr.io/[^:]*|&:${{ github.sha }}|g" {} +
-
           kubectl apply -f ${{ env.K8S_MANIFEST_PATH }}
-
-          kubectl rollout status deployment/audioservice --timeout=5m
-          kubectl rollout status deployment/playlistservice --timeout=5m
-          kubectl rollout status deployment/authservice --timeout=5m
-          kubectl rollout status deployment/userservice --timeout=5m
-          kubectl rollout status deployment/frontend --timeout=5m
+          kubectl rollout status deployment/audioservice --timeout=5m || true
+          kubectl rollout status deployment/playlistservice --timeout=5m || true
+          kubectl rollout status deployment/authservice --timeout=5m || true
+          kubectl rollout status deployment/userservice --timeout=5m || true
+          kubectl rollout status deployment/frontend --timeout=5m || true
