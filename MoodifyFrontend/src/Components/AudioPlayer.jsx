@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Play,
   Pause,
@@ -23,56 +23,9 @@ function AudioPlayer({
   const [repeat, setRepeat] = useState(false);
   const audioRef = useRef(null);
 
-  useEffect(() => {
-    if (audioRef.current) {
-      const handleTimeUpdate = () => setProgress(audioRef.current.currentTime);
-      const handleLoadedMetadata = () => setDuration(audioRef.current.duration);
-      const handleEnded = () => {
-        if (repeat) {
-          audioRef.current.play();
-        } else if (currentPlaylist.length > 1) {
-          handleNext();
-        } else {
-          setIsPlaying(false);
-        }
-      };
-
-      audioRef.current.addEventListener("timeupdate", handleTimeUpdate);
-      audioRef.current.addEventListener("loadedmetadata", handleLoadedMetadata);
-      audioRef.current.addEventListener("ended", handleEnded);
-
-      return () => {
-        if (audioRef.current) {
-          audioRef.current.removeEventListener("timeupdate", handleTimeUpdate);
-          audioRef.current.removeEventListener(
-            "loadedmetadata",
-            handleLoadedMetadata
-          );
-          audioRef.current.removeEventListener("ended", handleEnded);
-        }
-      };
-    }
-  }, [currentPlaylist, currentIndex, repeat]);
-
-  useEffect(() => {
-    if (currentTrack && audioRef.current && isPlaying) {
-      audioRef.current.play();
-    }
-  }, [currentTrack]);
-
-  const togglePlay = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
-    }
-  };
-
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (currentPlaylist.length === 0) return;
+
     let nextIdx;
     if (shuffle) {
       nextIdx = Math.floor(Math.random() * currentPlaylist.length);
@@ -81,25 +34,79 @@ function AudioPlayer({
     }
     onIndexChange(nextIdx);
     setIsPlaying(true);
-  };
+  }, [currentPlaylist, currentIndex, shuffle, onIndexChange]);
 
-  const handlePrev = () => {
+  const handlePrev = useCallback(() => {
     if (currentPlaylist.length === 0) return;
+
     const prevIdx =
       currentIndex === 0 ? currentPlaylist.length - 1 : currentIndex - 1;
     onIndexChange(prevIdx);
     setIsPlaying(true);
+  }, [currentPlaylist, currentIndex, onIndexChange]);
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+    const audio = audioRef.current;
+
+    const handleTimeUpdate = () => setProgress(audio.currentTime);
+    const handleLoadedMetadata = () => setDuration(audio.duration);
+    const handleEnded = () => {
+      if (repeat) {
+        audio.play();
+      } else if (currentPlaylist.length > 1) {
+        handleNext();
+      } else {
+        setIsPlaying(false);
+      }
+    };
+
+    audio.addEventListener("timeupdate", handleTimeUpdate);
+    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
+    audio.addEventListener("ended", handleEnded);
+
+    return () => {
+      audio.removeEventListener("timeupdate", handleTimeUpdate);
+      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      audio.removeEventListener("ended", handleEnded);
+    };
+  }, [currentPlaylist, currentIndex, repeat, handleNext]);
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+    const audio = audioRef.current;
+
+    if (currentTrack) {
+      if (isPlaying) {
+        audio.play();
+      } else {
+        audio.pause();
+      }
+    }
+  }, [currentTrack, isPlaying]);
+
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    const audio = audioRef.current;
+
+    if (isPlaying) {
+      audio.pause();
+    } else {
+      audio.play();
+    }
+    setIsPlaying(!isPlaying);
   };
 
   const handleSeek = (e) => {
+    if (!audioRef.current) return;
+
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const percentage = x / rect.width;
     const newTime = percentage * duration;
-    if (audioRef.current) {
-      audioRef.current.currentTime = newTime;
-      setProgress(newTime);
-    }
+
+    audioRef.current.currentTime = newTime;
+    setProgress(newTime);
   };
 
   const formatTime = (time) => {

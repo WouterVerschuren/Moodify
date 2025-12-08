@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { LogOut, User as UserIcon } from "lucide-react";
 import AudioPlayer from "./Components/AudioPlayer";
 import SongsPage from "./Components/SongsPage";
@@ -8,7 +8,6 @@ import RegisterForm from "./Components/RegisterForm";
 import "./App.css";
 
 const API_HOST = "https://4.251.168.14.nip.io";
-
 const API_AUDIO = `${API_HOST}/api/Audio`;
 const API_USER = `${API_HOST}/api/User`;
 const API_PLAYLIST = `${API_HOST}/api/Playlist`;
@@ -25,18 +24,7 @@ export default function App() {
   const [currentPlaylist, setCurrentPlaylist] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  useEffect(() => {
-    if (isAuthenticated && currentUser) {
-      fetchSongs();
-      fetchPlaylists();
-    }
-  }, [isAuthenticated, currentUser]);
-
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     try {
       const response = await fetch(`${API_AUTH}/verify`, {
         credentials: "include",
@@ -49,13 +37,12 @@ export default function App() {
     } catch (err) {
       console.error("Auth check failed:", err);
     }
-  };
+  }, []);
 
-  const fetchSongs = async () => {
+  const fetchSongs = useCallback(async () => {
     if (!currentUser) return;
 
     try {
-      // Get user's song IDs
       const userSongsResponse = await fetch(
         `${API_USER}/${currentUser.id}/songs`,
         {
@@ -63,40 +50,32 @@ export default function App() {
         }
       );
 
-      if (!userSongsResponse.ok) {
-        throw new Error("Failed to fetch user songs");
-      }
+      if (!userSongsResponse.ok) throw new Error("Failed to fetch user songs");
 
       const songIds = await userSongsResponse.json();
-
       if (!songIds || songIds.length === 0) {
         setSongs([]);
         return;
       }
 
-      // Fetch full song details for each song ID
       const songPromises = songIds.map(async (songId) => {
         const response = await fetch(`${API_AUDIO}/${songId}`, {
           credentials: "include",
         });
-        if (response.ok) {
-          return response.json();
-        }
+        if (response.ok) return response.json();
         return null;
       });
 
       const songsData = await Promise.all(songPromises);
-      const validSongs = songsData.filter((song) => song !== null);
-      setSongs(validSongs);
+      setSongs(songsData.filter((s) => s !== null));
     } catch (err) {
       console.error("Error fetching songs:", err);
       setSongs([]);
     }
-  };
+  }, [currentUser]);
 
-  const fetchPlaylists = async () => {
+  const fetchPlaylists = useCallback(async () => {
     if (!currentUser) return;
-
     try {
       const res = await fetch(`${API_PLAYLIST}/all`, {
         credentials: "include",
@@ -106,7 +85,18 @@ export default function App() {
     } catch (err) {
       console.error("Error fetching playlists:", err);
     }
-  };
+  }, [currentUser]);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  useEffect(() => {
+    if (isAuthenticated && currentUser) {
+      fetchSongs();
+      fetchPlaylists();
+    }
+  }, [isAuthenticated, currentUser, fetchSongs, fetchPlaylists]);
 
   const handleLogin = (user) => {
     setCurrentUser(user);
@@ -127,6 +117,7 @@ export default function App() {
     } catch (err) {
       console.error("Logout error:", err);
     }
+
     setIsAuthenticated(false);
     setCurrentUser(null);
     setSongs([]);
@@ -191,8 +182,7 @@ export default function App() {
               <span>{currentUser?.username}</span>
             </div>
             <button onClick={handleLogout} className="logout-btn">
-              <LogOut size={20} />
-              Logout
+              <LogOut size={20} /> Logout
             </button>
           </div>
         </div>
