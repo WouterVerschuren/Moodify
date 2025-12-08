@@ -58,7 +58,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-      - name: Restore & Build AudioService
+      - name: Restore & Build
         working-directory: Services/AudioService
         run: dotnet restore && dotnet build --no-restore -c Release
       - name: Test with Coverage
@@ -95,12 +95,10 @@ jobs:
           name: dependency-check-report
           path: reports
 
-  # 4. Build & Push Docker Images (only when needed)
+  # 4. Build & Push Docker Images
   build-and-push:
     needs: [detect-changes, sonar, dependency-check]
     runs-on: ubuntu-latest
-
-    # Only run the entire job if at least one service changed or it's a manual run
     if: >-
       needs.detect-changes.outputs.audio-service == 'true' ||
       needs.detect-changes.outputs.playlist-service == 'true' ||
@@ -137,10 +135,10 @@ jobs:
             image: moodify-frontend
             changed: ${{ needs.detect-changes.outputs.frontend }}
             dotnet: false
-
-    # Skip matrix row if nothing changed (except on manual runs)
-    continue-on-error: false
-    if: matrix.changed == 'true' || github.event_name == 'workflow_dispatch'
+        # Dynamically exclude unchanged services (except on manual runs)
+        exclude:
+          - changed: 'false'
+            github_event_name: push  # Only exclude on regular pushes
 
     env:
       IMAGE_NAME: ${{ secrets.ACR_NAME }}.azurecr.io/${{ matrix.image }}
@@ -168,7 +166,7 @@ jobs:
           cd ${{ matrix.path }}
           dotnet restore
           dotnet build --no-restore -c Release
-          cd ../${{ matrix.path }}.Tests
+          cd ../${{ matrix.path }}.Tests || cd ${{ matrix.path }}Tests  # fallback if folder name differs
           dotnet test --no-build -c Release
 
       - name: Build Frontend
@@ -203,12 +201,10 @@ jobs:
       - run: docker build -t local-test ./Services/AudioService
       - run: |
           docker run -d --name test-svc -p 8080:8080 local-test
-          timeout=60
-          while ! curl -f http://localhost:8080/api/Audio/health >/dev/null 2>&1; do
+          for i in {1..30}; do
+            curl -f http://localhost:8080/api/Audio/health && break
             sleep 5
-            timeout=$((timeout-5))
-            [ $timeout -le 0 ] && exit 1
-          done
+          done || exit 1
       - uses: zaproxy/action-baseline@v0.12.0
         with:
           target: http://localhost:8080
@@ -232,8 +228,8 @@ jobs:
             --name ${{ env.AKS_CLUSTER }} --overwrite-existing
       - name: Update image tags
         run: |
-          find ${{ env.K8S_MANIFEST_PATH }} -type f -name "*.yaml" -print0 | \
-            xargs -0 sed -i "s|${{ secrets.ACR_NAME }}.azurecr.io/[^:]\+|&:${{ github.sha }}|g"
+          find ${{ env.K8S_MANIFEST_PATH }} -type f -name "*.yaml" -exec sed -i \
+            "s|${{ secrets.ACR_NAME }}.azurecr.io/[^:]\+|&:${{ github.sha }}|g" {} +
       - run: kubectl apply -f ${{ env.K8S_MANIFEST_PATH }}
       - run: |
           kubectl rollout status deployment/audioservice --timeout=300s
