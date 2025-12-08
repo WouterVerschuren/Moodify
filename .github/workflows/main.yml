@@ -15,14 +15,14 @@ env:
   NODE_VERSION: 20
 
 jobs:
-  # 1. Detect changed services
+  # 1. Detect what changed
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      audio: ${{ steps.filter.outputs.audio-service }}
-      playlist: ${{ steps.filter.outputs.playlist-service }}
-      auth: ${{ steps.filter.outputs.auth-service }}
-      user: ${{ steps.filter.outputs.user-service }}
+      audio: ${{ steps.filter.outputs.audio }}
+      playlist: ${{ steps.filter.outputs.playlist }}
+      auth: ${{ steps.filter.outputs.auth }}
+      user: ${{ steps.filter.outputs.user }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v4
@@ -30,21 +30,26 @@ jobs:
         id: filter
         with:
           filters: |
-            audio-service:
+            audio:
               - 'Services/AudioService/**'
-            playlist-service:
+            playlist:
               - 'Services/PlaylistService/**'
-            auth-service:
+            auth:
               - 'Services/AuthService/**'
-            user-service:
+            user:
               - 'Services/UserService/**'
             frontend:
               - 'MoodifyFrontend/**'
 
-  # 2. SonarCloud — ALL .NET services scanned fairly
+  # 2. SonarCloud – only changed .NET services (or all on manual)
   sonar:
     needs: detect-changes
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.detect-changes.outputs.audio == 'true' ||
+      needs.detect-changes.outputs.playlist == 'true' ||
+      needs.detect-changes.outputs.auth == 'true' ||
+      needs.detect-changes.outputs.user == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -56,24 +61,43 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Build & Test All .NET Services + Coverage
+      - name: Build & Test Only Changed .NET Services
         run: |
-          services=("AudioService" "PlaylistService" "AuthService" "UserService")
-          for svc in "${services[@]}"; do
+          set -e
+
+          services_to_process=()
+          [[ "${{ github.event_name }}" == "workflow_dispatch" ]] && services_to_process=("AudioService" "PlaylistService" "AuthService" "UserService")
+          [[ "${{ needs.detect-changes.outputs.audio }}" == "true" ]] && services_to_process+=("AudioService")
+          [[ "${{ needs.detect-changes.outputs.playlist }}" == "true" ]] && services_to_process+=("PlaylistService")
+          [[ "${{ needs.detect-changes.outputs.auth }}" == "true" ]] && services_to_process+=("AuthService")
+          [[ "${{ needs.detect-changes.outputs.user }}" == "true" ]] && services_to_process+=("UserService")
+
+          # Remove duplicates (in case of manual run + changes)
+          services_to_process=($(printf '%s\n' "${services_to_process[@]}" | sort -u))
+
+          echo "Services to scan: ${services_to_process[*]:-none}"
+
+          for svc in "${services_to_process[@]}"; do
             echo "=== Processing $svc ==="
+            if [ ! -d "Services/$svc" ]; then
+              echo "Warning: Services/$svc not found – skipping"
+              continue
+            fi
+
             cd "Services/$svc"
             dotnet restore
             dotnet build --no-restore -c Release
-            
+
             if [ -d "../${svc}.Tests" ]; then
               cd "../${svc}.Tests"
               dotnet test --no-build -c Release \
                 --collect:"XPlat Code Coverage" \
-                --results-directory "../$svc/TestResults"
-              cd ../../..
+                --results-directory "../$svc/TestResults" \
+                --logger trx
+              cd ../..
             else
               echo "No test project for $svc"
-              cd ../../..
+              cd ../..
             fi
           done
 
@@ -111,7 +135,7 @@ jobs:
           name: dependency-check-report
           path: reports
 
-  # 4. Build & Push Images
+  # 4. Build & Push Images (only when needed)
   build-audio:
     needs: [detect-changes, sonar, dependency-check]
     if: needs.detect-changes.outputs.audio == 'true' || github.event_name == 'workflow_dispatch'
@@ -123,7 +147,7 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
       - run: |
           cd Services/AudioService && dotnet restore && dotnet build -c Release --no-restore
-          [ -d Services/AudioService.Tests ] && cd Services/AudioService.Tests && dotnet test -c Release --no-build || echo "No tests"
+          [ -d Services/AudioService.Tests ] && cd Services/AudioService.Tests && dotnet test -c Release --no-build || true
       - uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
@@ -217,7 +241,7 @@ jobs:
           docker build -t $IMG:${{ github.sha }} -t $IMG:latest MoodifyFrontend
           docker push $IMG:${{ github.sha }} && docker push $IMG:latest
 
-  # 5. OWASP ZAP Scan
+  # 5. OWASP ZAP (example on AudioService)
   zap:
     needs: build-audio
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
@@ -234,7 +258,7 @@ jobs:
       - run: docker rm -f audio
         if: always()
 
-  # 6. Deploy to AKS
+  # 6. Deploy
   deploy:
     needs: [build-audio, build-playlist, build-auth, build-user, build-frontend, zap]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
