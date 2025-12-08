@@ -119,12 +119,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: dotnet-version: ${{ env.DOTNET_VERSION }}
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
       - run: |
           cd Services/AudioService && dotnet restore && dotnet build -c Release --no-restore
           [ -d Services/AudioService.Tests ] && cd Services/AudioService.Tests && dotnet test -c Release --no-build || echo "No tests"
       - uses: azure/login@v2
-        with: creds: ${{ secrets.AZURE_CREDENTIALS }}
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
       - run: az acr login --name ${{ secrets.ACR_NAME }}
       - run: |
           IMG=${{ secrets.ACR_NAME }}.azurecr.io/audioservice
@@ -138,12 +140,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: dotnet-version: ${{ env.DOTNET_VERSION }}
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
       - run: |
           cd Services/PlaylistService && dotnet restore && dotnet build -c Release --no-restore
           [ -d Services/PlaylistService.Tests ] && cd Services/PlaylistService.Tests && dotnet test -c Release --no-build || true
       - uses: azure/login@v2
-        with: creds: ${{ secrets.AZURE_CREDENTIALS }}
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
       - run: az acr login --name ${{ secrets.ACR_NAME }}
       - run: |
           IMG=${{ secrets.ACR_NAME }}.azurecr.io/playlistservice
@@ -157,12 +161,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: dotnet-version: ${{ env.DOTNET_VERSION }}
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
       - run: |
           cd Services/AuthService && dotnet restore && dotnet build -c Release --no-restore
           [ -d Services/AuthService.Tests ] && cd Services/AuthService.Tests && dotnet test -c Release --no-build || true
       - uses: azure/login@v2
-        with: creds: ${{ secrets.AZURE_CREDENTIALS }}
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
       - run: az acr login --name ${{ secrets.ACR_NAME }}
       - run: |
           IMG=${{ secrets.ACR_NAME }}.azurecr.io/authservice
@@ -176,12 +182,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: dotnet-version: ${{ env.DOTNET_VERSION }}
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
       - run: |
           cd Services/UserService && dotnet restore && dotnet build -c Release --no-restore
           [ -d Services/UserService.Tests ] && cd Services/UserService.Tests && dotnet test -c Release --no-build || true
       - uses: azure/login@v2
-        with: creds: ${{ secrets.AZURE_CREDENTIALS }}
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
       - run: az acr login --name ${{ secrets.ACR_NAME }}
       - run: |
           IMG=${{ secrets.ACR_NAME }}.azurecr.io/userservice
@@ -201,7 +209,8 @@ jobs:
       - run: |
           cd MoodifyFrontend && npm ci && npm run build
       - uses: azure/login@v2
-        with: creds: ${{ secrets.AZURE_CREDENTIALS }}
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
       - run: az acr login --name ${{ secrets.ACR_NAME }}
       - run: |
           IMG=${{ secrets.ACR_NAME }}.azurecr.io/moodify-frontend
@@ -234,7 +243,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: azure/login@v2
-        with: creds: ${{ secrets.AZURE_CREDENTIALS }}
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
       - run: |
           az aks get-credentials --resource-group ${{ env.RESOURCE_GROUP }} --name ${{ env.AKS_CLUSTER }} --overwrite-existing
           find ${{ env.K8S_MANIFEST_PATH }} -type f -name "*.yaml" -exec sed -i "s|${{ secrets.ACR_NAME }}.azurecr.io/[^:]*|&:${{ github.sha }}|g" {} +
