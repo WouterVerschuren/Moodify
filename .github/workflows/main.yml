@@ -41,7 +41,7 @@ jobs:
             frontend:
               - 'MoodifyFrontend/**'
 
-  # 2. SonarCloud — ALL .NET services scanned fairly in one job
+  # 2. SonarCloud — ALL .NET services scanned fairly
   sonar:
     needs: detect-changes
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
@@ -56,11 +56,11 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Build & Test All .NET Services + Generate Coverage
+      - name: Build & Test All .NET Services + Coverage
         run: |
           services=("AudioService" "PlaylistService" "AuthService" "UserService")
           for svc in "${services[@]}"; do
-            echo "=== Building & Testing $svc ==="
+            echo "=== Processing $svc ==="
             cd "Services/$svc"
             dotnet restore
             dotnet build --no-restore -c Release
@@ -69,16 +69,15 @@ jobs:
               cd "../${svc}.Tests"
               dotnet test --no-build -c Release \
                 --collect:"XPlat Code Coverage" \
-                --results-directory "../$svc/TestResults" \
-                --logger trx
-              cd ../..
+                --results-directory "../$svc/TestResults"
+              cd ../../..
             else
-              echo "No tests for $svc"
-              cd ../..
+              echo "No test project for $svc"
+              cd ../../..
             fi
           done
 
-      - name: SonarCloud Scan (All Services)
+      - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v3
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -91,7 +90,7 @@ jobs:
             -Dsonar.cs.opencover.reportsPaths=Services/**/TestResults/**/coverage.opencover.xml
             -Dsonar.exclusions=**/*Tests/*.cs,**/*.csproj,**/*AssemblyInfo.cs
 
-  # 3. OWASP Dependency-Check (all backend services)
+  # 3. OWASP Dependency-Check
   dependency-check:
     needs: detect-changes
     if: >-
@@ -112,7 +111,7 @@ jobs:
           name: dependency-check-report
           path: reports
 
-  # 4. Build & Push Images — one job per service (simple & reliable)
+  # 4. Build & Push Images
   build-audio:
     needs: [detect-changes, sonar, dependency-check]
     if: needs.detect-changes.outputs.audio == 'true' || github.event_name == 'workflow_dispatch'
@@ -122,9 +121,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with: dotnet-version: ${{ env.DOTNET_VERSION }}
       - run: |
-          cd Services/AudioService
-          dotnet restore && dotnet build -c Release --no-restore
-          cd ../AudioService.Tests && dotnet test -c Release --no-build || cd ../../..
+          cd Services/AudioService && dotnet restore && dotnet build -c Release --no-restore
+          [ -d Services/AudioService.Tests ] && cd Services/AudioService.Tests && dotnet test -c Release --no-build || echo "No tests"
       - uses: azure/login@v2
         with: creds: ${{ secrets.AZURE_CREDENTIALS }}
       - run: az acr login --name ${{ secrets.ACR_NAME }}
@@ -143,7 +141,7 @@ jobs:
         with: dotnet-version: ${{ env.DOTNET_VERSION }}
       - run: |
           cd Services/PlaylistService && dotnet restore && dotnet build -c Release --no-restore
-          cd ../PlaylistService.Tests && dotnet test -c Release --no-build || true
+          [ -d Services/PlaylistService.Tests ] && cd Services/PlaylistService.Tests && dotnet test -c Release --no-build || true
       - uses: azure/login@v2
         with: creds: ${{ secrets.AZURE_CREDENTIALS }}
       - run: az acr login --name ${{ secrets.ACR_NAME }}
@@ -162,7 +160,7 @@ jobs:
         with: dotnet-version: ${{ env.DOTNET_VERSION }}
       - run: |
           cd Services/AuthService && dotnet restore && dotnet build -c Release --no-restore
-          cd ../AuthService.Tests && dotnet test -c Release --no-build || true
+          [ -d Services/AuthService.Tests ] && cd Services/AuthService.Tests && dotnet test -c Release --no-build || true
       - uses: azure/login@v2
         with: creds: ${{ secrets.AZURE_CREDENTIALS }}
       - run: az acr login --name ${{ secrets.ACR_NAME }}
@@ -181,7 +179,7 @@ jobs:
         with: dotnet-version: ${{ env.DOTNET_VERSION }}
       - run: |
           cd Services/UserService && dotnet restore && dotnet build -c Release --no-restore
-          cd ../UserService.Tests && dotnet test -c Release --no-build || true
+          [ -d Services/UserService.Tests ] && cd Services/UserService.Tests && dotnet test -c Release --no-build || true
       - uses: azure/login@v2
         with: creds: ${{ secrets.AZURE_CREDENTIALS }}
       - run: az acr login --name ${{ secrets.ACR_NAME }}
@@ -201,9 +199,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: |
-          cd MoodifyFrontend
-          npm ci
-          npm run build
+          cd MoodifyFrontend && npm ci && npm run build
       - uses: azure/login@v2
         with: creds: ${{ secrets.AZURE_CREDENTIALS }}
       - run: az acr login --name ${{ secrets.ACR_NAME }}
@@ -212,7 +208,7 @@ jobs:
           docker build -t $IMG:${{ github.sha }} -t $IMG:latest MoodifyFrontend
           docker push $IMG:${{ github.sha }} && docker push $IMG:latest
 
-  # 5. OWASP ZAP Scan (runs against AudioService as example)
+  # 5. OWASP ZAP Scan
   zap:
     needs: build-audio
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
@@ -222,10 +218,7 @@ jobs:
       - run: docker build -t test-audio Services/AudioService
       - run: |
           docker run -d --name audio -p 8080:8080 test-audio
-          for i in {1..40}; do
-            curl -f http://localhost:8080/api/Audio/health && break
-            sleep 3
-          done
+          for i in {1..40}; do curl -f http://localhost:8080/api/Audio/health && break; sleep 3; done
       - uses: zaproxy/action-baseline@v0.12.0
         with:
           target: http://localhost:8080
