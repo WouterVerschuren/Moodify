@@ -118,7 +118,7 @@ export default function SongsPage({
   return (
     <div className="songs-page">
       <div className="upload-section">
-        <h2 className="section-title">Upload New Song</h2>
+        <h2 className="section-title">Upload New gay Song</h2>
         <p className="section-description">
           Add songs to your personal music library
         </p>
