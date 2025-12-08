@@ -27,3 +27,6 @@ obj/
 
 # Git
 .git/
+
+# Kubernetes secrets
+moodify-secrets.yaml

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Music } from "lucide-react";
 import "./Auth.css";
 
-const API_HOST = "http://4.251.168.14.nip.io";
+const API_HOST = "https://4.251.168.14.nip.io";
 
 const API_AUTH = `${API_HOST}/api/Auth`;
 

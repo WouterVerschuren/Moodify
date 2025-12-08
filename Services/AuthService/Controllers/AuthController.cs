@@ -34,7 +34,7 @@ namespace AuthService.Controllers
             {
                 HttpOnly = true,
                 SameSite = SameSiteMode.Lax,
-                Secure = false, // for HTTP testing
+                Secure = true, // for HTTP testing
                 Path = "/",
                 Expires = DateTime.UtcNow.AddDays(7)
             });
@@ -55,7 +55,7 @@ namespace AuthService.Controllers
             {
                 HttpOnly = true,
                 SameSite = SameSiteMode.Lax,
-                Secure = false, // for HTTP testing
+                Secure = true, // for HTTP testing
                 Path = "/",
                 Expires = DateTime.UtcNow.AddDays(7)
             });

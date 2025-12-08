@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: moodify-cert
+  namespace: moodify
+spec:
+  secretName: moodify-tls
+  issuerRef:
+    name: letsencrypt-nipio
+    kind: ClusterIssuer
+  dnsNames:
+    - 4.251.168.14.nip.io

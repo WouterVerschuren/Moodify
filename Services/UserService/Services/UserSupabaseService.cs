@@ -176,5 +176,48 @@ namespace UserService.Services
             var response = await _httpClient.SendAsync(request);
             response.EnsureSuccessStatusCode();
         }
+
+        public async Task<List<Guid>> GetSongsByUserAsync(Guid userId)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get,
+                $"{_restUrlUserSongs}?select=songId&userId=eq.{userId}");
+
+            request.Headers.Add("apikey", _serviceRoleKey);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _serviceRoleKey);
+
+            var response = await _httpClient.SendAsync(request);
+            var respContent = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Supabase Error: " + respContent);
+                return new List<Guid>();
+            }
+
+            var userSongs = JsonSerializer.Deserialize<List<UserSong>>(respContent) ?? new List<UserSong>();
+            return userSongs.ConvertAll(us => us.songId);
+        }
+
+        public async Task<List<Guid>> GetPlaylistsByUserAsync(Guid userId)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get,
+                $"{_restUrlUserPlaylists}?select=playlistId&userId=eq.{userId}");
+
+            request.Headers.Add("apikey", _serviceRoleKey);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _serviceRoleKey);
+
+            var response = await _httpClient.SendAsync(request);
+            var respContent = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Supabase Error: " + respContent);
+                return new List<Guid>();
+            }
+
+            var userPlaylists = JsonSerializer.Deserialize<List<UserPlaylist>>(respContent) ?? new List<UserPlaylist>();
+            return userPlaylists.ConvertAll(up => up.playlistId);
+        }
+
     }
 }

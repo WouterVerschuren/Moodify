@@ -1,12 +1,15 @@
-# =====================
 # AudioService
-# =====================
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: audioservice
 spec:
-  replicas: 1
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
   selector:
     matchLabels:
       app: audioservice
@@ -50,6 +53,18 @@ spec:
                 secretKeyRef:
                   name: moodify-secrets
                   key: SUPABASE_AUDIOSERVICE_BUCKET
+          livenessProbe:
+            httpGet:
+              path: /api/Audio/health
+              port: 9000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/Audio/health
+              port: 9000
+            initialDelaySeconds: 5
+            periodSeconds: 5
 ---
 apiVersion: v1
 kind: Service
@@ -63,16 +78,19 @@ spec:
     - protocol: TCP
       port: 9000
       targetPort: 9000
-
-# =====================
+---
 # PlaylistService
-# =====================
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: playlistservice
 spec:
-  replicas: 1
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
   selector:
     matchLabels:
       app: playlistservice
@@ -113,6 +131,18 @@ spec:
                 secretKeyRef:
                   name: moodify-secrets
                   key: SUPABASE_PLAYLISTSERVICE_ANON_KEY
+          livenessProbe:
+            httpGet:
+              path: /api/Playlist/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/Playlist/health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
 ---
 apiVersion: v1
 kind: Service
@@ -126,16 +156,19 @@ spec:
     - protocol: TCP
       port: 8080
       targetPort: 8080
-
-# =====================
+---
 # AuthService
-# =====================
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: authservice
 spec:
-  replicas: 1
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
   selector:
     matchLabels:
       app: authservice
@@ -174,6 +207,18 @@ spec:
                 secretKeyRef:
                   name: moodify-secrets
                   key: SUPABASE_USERSERVICE_ANON_KEY
+          livenessProbe:
+            httpGet:
+              path: /api/Auth/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/Auth/health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
 ---
 apiVersion: v1
 kind: Service
@@ -187,16 +232,19 @@ spec:
     - protocol: TCP
       port: 8080
       targetPort: 8080
-
-# =====================
+---
 # UserService
-# =====================
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: userservice
 spec:
-  replicas: 1
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
   selector:
     matchLabels:
       app: userservice
@@ -235,6 +283,18 @@ spec:
                 secretKeyRef:
                   name: moodify-secrets
                   key: SUPABASE_USERSERVICE_ANON_KEY
+          livenessProbe:
+            httpGet:
+              path: /api/User/health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/User/health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
 ---
 apiVersion: v1
 kind: Service
@@ -248,16 +308,19 @@ spec:
     - protocol: TCP
       port: 8000
       targetPort: 8000
-
-# =====================
+---
 # Frontend
-# =====================
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend
 spec:
-  replicas: 1
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
   selector:
     matchLabels:
       app: frontend
@@ -287,54 +350,3 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 80
-
-# =====================
-# Ingress
-# =====================
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: moodify-ingress
-  annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: 100m
-spec:
-  ingressClassName: nginx
-  rules:
-    - host: "4.251.168.14.nip.io"
-      http:
-        paths:
-          - path: /api/Audio
-            pathType: Prefix
-            backend:
-              service:
-                name: audioservice
-                port:
-                  number: 9000
-          - path: /api/Playlist
-            pathType: Prefix
-            backend:
-              service:
-                name: playlistservice
-                port:
-                  number: 8080
-          - path: /api/Auth
-            pathType: Prefix
-            backend:
-              service:
-                name: authservice
-                port:
-                  number: 8080
-          - path: /api/User
-            pathType: Prefix
-            backend:
-              service:
-                name: userservice
-                port:
-                  number: 8000
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: frontend
-                port:
-                  number: 80

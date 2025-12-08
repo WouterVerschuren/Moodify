@@ -62,6 +62,7 @@
                         new JsonSerializerOptions { PropertyNameCaseInsensitive = true })?.First()
                     ?? throw new Exception("Failed to parse Supabase response");
             }
+            
 
             public async Task<User?> GetUserByEmailAsync(string email)
             {

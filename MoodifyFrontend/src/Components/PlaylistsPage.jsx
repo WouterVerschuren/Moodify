@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Play, Music } from "lucide-react";
 import "./PlaylistsPage.css";
 
-const API_PLAYLIST = "http://localhost:5001/api/playlist";
+const API_PLAYLIST = "https://localhost:5001/api/playlist";
 
 export default function PlaylistsPage({
   songs,

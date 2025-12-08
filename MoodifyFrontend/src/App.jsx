@@ -7,13 +7,12 @@ import LoginForm from "./Components/LoginForm";
 import RegisterForm from "./Components/RegisterForm";
 import "./App.css";
 
-// Use your deployed ingress host
-const API_HOST = "http://4.251.168.14.nip.io";
+const API_HOST = "https://4.251.168.14.nip.io";
 
 const API_AUDIO = `${API_HOST}/api/Audio`;
+const API_USER = `${API_HOST}/api/User`;
 const API_PLAYLIST = `${API_HOST}/api/Playlist`;
 const API_AUTH = `${API_HOST}/api/Auth`;
-const API_USER = `${API_HOST}/api/User`;
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -31,55 +30,77 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && currentUser) {
       fetchSongs();
       fetchPlaylists();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, currentUser]);
 
   const checkAuth = async () => {
     try {
       const response = await fetch(`${API_AUTH}/verify`, {
         credentials: "include",
       });
-
-      if (!response.ok) {
-        setIsAuthenticated(false);
-        return;
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentUser(data.user);
+        setIsAuthenticated(true);
       }
-
-      const data = await response.json();
-      setCurrentUser(data.user);
-      setIsAuthenticated(true);
     } catch (err) {
       console.error("Auth check failed:", err);
-      setIsAuthenticated(false);
     }
   };
 
   const fetchSongs = async () => {
+    if (!currentUser) return;
+
     try {
-      const res = await fetch(`${API_AUDIO}/all`, { credentials: "include" });
-      if (!res.ok) {
-        console.error("Fetch songs failed:", res.status, res.statusText);
+      // Get user's song IDs
+      const userSongsResponse = await fetch(
+        `${API_USER}/${currentUser.id}/songs`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (!userSongsResponse.ok) {
+        throw new Error("Failed to fetch user songs");
+      }
+
+      const songIds = await userSongsResponse.json();
+
+      if (!songIds || songIds.length === 0) {
+        setSongs([]);
         return;
       }
-      const data = await res.json();
-      setSongs(data);
+
+      // Fetch full song details for each song ID
+      const songPromises = songIds.map(async (songId) => {
+        const response = await fetch(`${API_AUDIO}/${songId}`, {
+          credentials: "include",
+        });
+        if (response.ok) {
+          return response.json();
+        }
+        return null;
+      });
+
+      const songsData = await Promise.all(songPromises);
+      const validSongs = songsData.filter((song) => song !== null);
+      setSongs(validSongs);
     } catch (err) {
       console.error("Error fetching songs:", err);
+      setSongs([]);
     }
   };
 
   const fetchPlaylists = async () => {
+    if (!currentUser) return;
+
     try {
       const res = await fetch(`${API_PLAYLIST}/all`, {
         credentials: "include",
       });
-      if (!res.ok) {
-        console.error("Fetch playlists failed:", res.status, res.statusText);
-        return;
-      }
       const data = await res.json();
       setPlaylists(data);
     } catch (err) {
@@ -184,6 +205,7 @@ export default function App() {
               songs={songs}
               onSongsFetch={fetchSongs}
               onPlaySong={playSong}
+              currentUser={currentUser}
             />
           ) : (
             <PlaylistsPage

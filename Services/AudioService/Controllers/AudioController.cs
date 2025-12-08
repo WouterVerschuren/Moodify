@@ -21,7 +21,6 @@ namespace AudioService.Controllers
         [AllowAnonymous]
         public IActionResult Get() => Ok(new { status = "Healthy" });
 
-
         [HttpPost("upload")]
         [RequestSizeLimit(100_000_000)]
         public async Task<IActionResult> Upload([FromForm] UploadSongForm form)
