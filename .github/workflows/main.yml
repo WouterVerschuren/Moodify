@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  ACR_NAME: moodifyacr1764849759  # or keep as secret - used to tag images
+  ACR_NAME: ${{ secrets.ACR_NAME }}  
   RESOURCE_GROUP: ${{ secrets.AKS_RESOURCE_GROUP }}
   AKS_CLUSTER: ${{ secrets.AKS_CLUSTER_NAME }}
   K8S_MANIFEST_PATH: k8s
