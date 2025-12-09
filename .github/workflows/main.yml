@@ -15,7 +15,6 @@ env:
   NODE_VERSION: 20
 
 jobs:
-  # 1. Detect what changed
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
@@ -38,7 +37,6 @@ jobs:
             user:        'Services/UserService/**'
             frontend:    'MoodifyFrontend/**'
 
-  # 2. SonarCloud – Full SAST + Quality Gate
   sonar:
     needs: detect-changes
     if: needs.detect-changes.outputs.any_backend == 'true' || github.event_name == 'workflow_dispatch'
@@ -87,7 +85,6 @@ jobs:
             -Dsonar.qualitygate.wait=true
             -Dsonar.scm.disabled=true
 
-  # 3. OWASP Dependency-Check
   dependency-check:
     needs: detect-changes
     if: needs.detect-changes.outputs.any_backend == 'true' || github.event_name == 'workflow_dispatch'
@@ -97,6 +94,7 @@ jobs:
       - uses: dependency-check/Dependency-Check_Action@main
         with:
           path: ./Services
+          project: Moodify-Backend
           format: ALL
           args: --failOnCVSS 7 --out reports --enableExperimental
       - uses: actions/upload-artifact@v4
@@ -107,7 +105,6 @@ jobs:
         with:
           sarif_file: reports/dependency-check-report.sarif
 
-  # 4. Build Microservices
   build-audio:
     needs: [detect-changes, sonar, dependency-check]
     if: needs.detect-changes.outputs.audio == 'true' || github.event_name == 'workflow_dispatch'
