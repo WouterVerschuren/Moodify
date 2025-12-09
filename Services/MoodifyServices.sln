@@ -7,9 +7,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuthService", "AuthService\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AudioService", "AudioService\AudioService.csproj", "{91CE24F4-D9E6-4468-8C5B-B9B10F1E9EF1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PlaylistService", "PlaylistService\PlaylistService.csproj", "{6087A59E-C128-416D-91D1-45880532FA33}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PlayListService", "PlayListService\PlaylistService.csproj", "{6087A59E-C128-416D-91D1-45880532FA33}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UserService", "userservice\UserService.csproj", "{E72196E0-6069-4B2F-8E60-67031D004E79}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UserService", "UserService\UserService.csproj", "{E72196E0-6069-4B2F-8E60-67031D004E79}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
