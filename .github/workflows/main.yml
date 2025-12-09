@@ -67,26 +67,26 @@ jobs:
             /o:"${{ secrets.SONAR_ORG }}" \
             /d:sonar.login="${{ secrets.SONAR_TOKEN }}" \
             /d:sonar.host.url="https://sonarcloud.io" \
+            /s:"Services/MoodifyServices.sln" \
             /d:sonar.cs.opencover.reportsPaths="Services/**/TestResults/**/coverage.opencover.xml" \
             /d:sonar.exclusions="MoodifyFrontend/**/*" \
             /d:sonar.qualitygate.wait=true \
             /d:sonar.scm.disabled=true
 
-      - name: Build & Test Services
+      - name: Build & Test Solution
         run: |
-          services=("AudioService" "PlaylistService" "AuthService" "UserService")
-          for svc in "${services[@]}"; do
-            [[ -d "Services/$svc" ]] || continue
-            echo "Building & testing $svc"
-            cd "Services/$svc"
-            dotnet restore
-            dotnet build --no-restore -c Release
-            if [ -d "../${svc}.Tests" ]; then
-              cd "../${svc}.Tests"
+          cd Services
+          dotnet restore MoodifyServices.sln
+          dotnet build MoodifyServices.sln -c Release
+
+          # Run tests with code coverage
+          for svc in "AudioService" "PlaylistService" "AuthService" "UserService"; do
+            if [ -d "$svc.Tests" ]; then
+              cd "$svc.Tests"
               dotnet test --no-build -c Release \
                 --collect:"XPlat Code Coverage" \
                 --results-directory "../$svc/TestResults"
-              cd ../..
+              cd ..
             fi
           done
 
