@@ -81,6 +81,7 @@ jobs:
             -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
             -Dsonar.organization=${{ secrets.SONAR_ORG }}
             -Dsonar.sources=Services
+            -Dsonar.exclusions=MoodifyFrontend/**/*
             -Dsonar.cs.opencover.reportsPaths=Services/**/TestResults/**/coverage.opencover.xml
             -Dsonar.qualitygate.wait=true
             -Dsonar.scm.disabled=true
