@@ -29,8 +29,17 @@ export default function SongsPage({
       !uploadForm.title ||
       !uploadForm.artist ||
       !currentUser
-    )
+    ) {
+      alert("Please fill in all fields and select a file");
       return;
+    }
+
+    // Get user ID
+    const userId = currentUser.id || currentUser.Id;
+    if (!userId) {
+      alert("User ID not found");
+      return;
+    }
 
     const formData = new FormData();
     formData.append("file", selectedFile);
@@ -41,38 +50,85 @@ export default function SongsPage({
     try {
       setUploading(true);
 
-      // Step 1: Upload the song to the audio service
+      // Step 1: Upload the song
+      console.log("Starting upload...");
       const uploadResponse = await fetch(`${API_AUDIO}/upload`, {
         method: "POST",
         body: formData,
         credentials: "include",
       });
 
+      console.log("Upload response status:", uploadResponse.status);
+      console.log("Upload response headers:", uploadResponse.headers);
+
       if (!uploadResponse.ok) {
-        throw new Error("Failed to upload song");
+        const errorText = await uploadResponse.text();
+        console.error("Upload failed:", errorText);
+        throw new Error(`Upload failed: ${uploadResponse.status}`);
       }
 
-      const uploadedSong = await uploadResponse.json();
+      // Parse the response
+      const responseText = await uploadResponse.text();
+      console.log("Raw response text:", responseText);
 
-      // Step 2: Add the song to the current user's library
-      const addToUserResponse = await fetch(
-        `${API_USER}/${currentUser.id}/songs/${uploadedSong.id}`,
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
+      let uploadData;
+      try {
+        uploadData = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("JSON parse error:", parseError);
+        console.error("Response was:", responseText);
+        throw new Error("Invalid JSON response from server");
+      }
+
+      console.log("Parsed upload data:", uploadData);
+      console.log("Song object:", uploadData.song);
+
+      // Get the song from response
+      if (!uploadData.song) {
+        console.error("No song in response. Full response:", uploadData);
+        throw new Error("No song object in response");
+      }
+
+      const song = uploadData.song;
+      console.log("Song ID:", song.id);
+
+      if (!song.id) {
+        console.error("No ID in song. Song object:", song);
+        console.error("Song keys:", Object.keys(song));
+        throw new Error("No ID in song object");
+      }
+
+      const songId = song.id;
+      console.log("Using song ID:", songId);
+
+      // Step 2: Add song to user
+      console.log(`Adding song ${songId} to user ${userId}`);
+      const addUrl = `${API_USER}/${userId}/songs/${songId}`;
+      console.log("POST URL:", addUrl);
+
+      const addToUserResponse = await fetch(addUrl, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      console.log("Add to user response status:", addToUserResponse.status);
 
       if (!addToUserResponse.ok) {
+        const errorText = await addToUserResponse.text();
+        console.error("Add to user failed:", errorText);
         throw new Error("Failed to add song to your library");
       }
 
-      // Reset form and refresh songs list
+      console.log("Song successfully added to user!");
+
+      // Reset form and refresh
       setUploadForm({ title: "", artist: "", songMood: "Happy" });
       setSelectedFile(null);
       onSongsFetch();
+
+      alert("Song uploaded successfully!");
     } catch (err) {
-      console.error("Error uploading:", err);
+      console.error("Error in handleUpload:", err);
       alert(err.message || "Failed to upload song. Please try again.");
     } finally {
       setUploading(false);
@@ -80,7 +136,7 @@ export default function SongsPage({
   };
 
   const handleDeleteSong = async (e, songId) => {
-    e.stopPropagation(); // Prevent playing the song when clicking delete
+    e.stopPropagation();
 
     if (
       !window.confirm(
@@ -90,23 +146,21 @@ export default function SongsPage({
       return;
     }
 
+    const userId = currentUser.id || currentUser.Id;
+
     try {
       setDeleting(songId);
 
-      // Remove the song from the user's library
-      const response = await fetch(
-        `${API_USER}/${currentUser.id}/songs/${songId}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        }
-      );
+      const response = await fetch(`${API_USER}/${userId}/songs/${songId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
 
       if (!response.ok) {
         throw new Error("Failed to remove song from library");
       }
 
-      onSongsFetch(); // Refresh the songs list
+      onSongsFetch();
     } catch (err) {
       console.error("Error deleting song:", err);
       alert(err.message || "Failed to remove song. Please try again.");
@@ -118,7 +172,7 @@ export default function SongsPage({
   return (
     <div className="songs-page">
       <div className="upload-section">
-        <h2 className="section-title">Upload New gay Song</h2>
+        <h2 className="section-title">Upload New Song</h2>
         <p className="section-description">
           Add songs to your personal music library
         </p>
@@ -131,6 +185,7 @@ export default function SongsPage({
               setUploadForm({ ...uploadForm, title: e.target.value })
             }
             className="form-input"
+            required
           />
           <input
             type="text"
@@ -140,6 +195,7 @@ export default function SongsPage({
               setUploadForm({ ...uploadForm, artist: e.target.value })
             }
             className="form-input"
+            required
           />
           <select
             value={uploadForm.songMood}

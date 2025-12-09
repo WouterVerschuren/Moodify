@@ -15,7 +15,7 @@ builder.WebHost.ConfigureKestrel(options =>
     options.Limits.MaxRequestBodySize = 100 * 1024 * 1024; 
 });
 
-builder.WebHost.UseUrls("http://0.0.0.0:9000");
+builder.WebHost.UseUrls("http://0.0.0.0:8080");
 
 // Add CORS
 builder.Services.AddCors(options =>

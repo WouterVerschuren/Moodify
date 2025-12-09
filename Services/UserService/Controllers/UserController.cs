@@ -92,7 +92,7 @@ namespace UserService.Controllers
             return Ok("Playlist removed from user");
         }
 
-          [HttpGet("{userId}/songs")]
+        [HttpGet("{userId}/songs")]
         public async Task<IActionResult> GetSongsByUser(Guid userId)
         {
             var songIds = await _userService.GetSongsByUserAsync(userId);
