@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { LogOut, User as UserIcon } from "lucide-react";
 import AudioPlayer from "./Components/AudioPlayer";
 import SongsPage from "./Components/SongsPage";
@@ -29,13 +29,6 @@ export default function App() {
     checkAuth();
   }, []);
 
-  useEffect(() => {
-    if (isAuthenticated && currentUser) {
-      fetchSongs();
-      fetchPlaylists();
-    }
-  }, [isAuthenticated, currentUser]);
-
   const checkAuth = async () => {
     try {
       const response = await fetch(`${API_AUTH}/verify`, {
@@ -51,14 +44,11 @@ export default function App() {
     }
   };
 
-  const fetchSongs = async () => {
+  const fetchSongs = useCallback(async () => {
     if (!currentUser) return;
 
     try {
-      // Handle both lowercase 'id' and uppercase 'Id' (C# convention)
       const userId = currentUser.id || currentUser.Id;
-
-      // Get user's song IDs
       const userSongsResponse = await fetch(`${API_USER}/${userId}/songs`, {
         credentials: "include",
       });
@@ -70,29 +60,22 @@ export default function App() {
       }
 
       const songIds = await userSongsResponse.json();
-
       if (!songIds || songIds.length === 0) {
         setSongs([]);
         return;
       }
 
-      // Fetch full song details using batch endpoint
       const idsString = songIds.join(",");
       const songsResponse = await fetch(`${API_AUDIO}/batch?ids=${idsString}`, {
         credentials: "include",
       });
 
-      if (!songsResponse.ok) {
-        throw new Error("Failed to fetch song details");
-      }
+      if (!songsResponse.ok) throw new Error("Failed to fetch song details");
 
       const songsData = await songsResponse.json();
-      console.log("Fetched songs:", songsData); // Debug log
 
-      // Make sure each song has the right URL property for the audio player
       const processedSongs = songsData.map((song) => ({
         ...song,
-        // Use signedUrl if available, otherwise storagePath
         storagePath:
           song.signedUrl ||
           song.SignedUrl ||
@@ -105,21 +88,16 @@ export default function App() {
       console.error("Error fetching songs:", err);
       setSongs([]);
     }
-  };
+  }, [currentUser]);
 
-  const fetchPlaylists = async () => {
+  const fetchPlaylists = useCallback(async () => {
     if (!currentUser) return;
 
     try {
-      // Handle both lowercase 'id' and uppercase 'Id' (C# convention)
       const userId = currentUser.id || currentUser.Id;
-
-      // Get user's playlist IDs
       const userPlaylistsResponse = await fetch(
         `${API_USER}/${userId}/playlists`,
-        {
-          credentials: "include",
-        }
+        { credentials: "include" }
       );
 
       if (!userPlaylistsResponse.ok) {
@@ -132,21 +110,17 @@ export default function App() {
       }
 
       const playlistIds = await userPlaylistsResponse.json();
-
       if (!playlistIds || playlistIds.length === 0) {
         setPlaylists([]);
         return;
       }
 
-      // Fetch full playlist details for each playlist ID
       const playlistPromises = playlistIds.map(async (playlistId) => {
         try {
           const response = await fetch(`${API_PLAYLIST}/${playlistId}`, {
             credentials: "include",
           });
-          if (response.ok) {
-            return response.json();
-          }
+          if (response.ok) return response.json();
           return null;
         } catch (err) {
           console.error(`Error fetching playlist ${playlistId}:`, err);
@@ -155,15 +129,19 @@ export default function App() {
       });
 
       const playlistsData = await Promise.all(playlistPromises);
-      const validPlaylists = playlistsData.filter(
-        (playlist) => playlist !== null
-      );
-      setPlaylists(validPlaylists);
+      setPlaylists(playlistsData.filter((p) => p));
     } catch (err) {
       console.error("Error fetching playlists:", err);
       setPlaylists([]);
     }
-  };
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (isAuthenticated && currentUser) {
+      fetchSongs();
+      fetchPlaylists();
+    }
+  }, [isAuthenticated, currentUser, fetchSongs, fetchPlaylists]);
 
   const handleLogin = (user) => {
     setCurrentUser(user);
@@ -184,6 +162,7 @@ export default function App() {
     } catch (err) {
       console.error("Logout error:", err);
     }
+
     setIsAuthenticated(false);
     setCurrentUser(null);
     setSongs([]);
