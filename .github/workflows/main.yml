@@ -55,20 +55,7 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Begin SonarScanner for .NET
-        run: |
-          dotnet tool install --global dotnet-sonarscanner --version 5.*
-          export PATH="$PATH:/home/runner/.dotnet/tools"
-          dotnet sonarscanner begin \
-            /k:"${{ secrets.SONAR_PROJECT_KEY }}" \
-            /o:"${{ secrets.SONAR_ORG }}" \
-            /d:sonar.login="${{ secrets.SONAR_TOKEN }}" \
-            /d:sonar.cs.opencover.reportsPaths="Services/**/TestResults/**/coverage.opencover.xml" \
-            /d:sonar.exclusions="MoodifyFrontend/**/*" \
-            /d:sonar.qualitygate.wait=true \
-            /d:sonar.scm.disabled=true
-
-      - name: Build & Test Services
+      - name: Build & Test .NET Services
         run: |
           services=("AudioService" "PlaylistService" "AuthService" "UserService")
           for svc in "${services[@]}"; do
@@ -86,8 +73,19 @@ jobs:
             fi
           done
 
-      - name: End SonarScanner
-        run: dotnet sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
+      - name: Run SonarCloud Analysis
+        uses: SonarSource/sonarcloud-github-action@v3
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ secrets.SONAR_ORG }}
+            -Dsonar.sources=Services
+            -Dsonar.exclusions=MoodifyFrontend/**/*
+            -Dsonar.cs.opencover.reportsPaths=Services/**/TestResults/**/coverage.opencover.xml
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.scm.disabled=true
 
   dependency-check:
     needs: detect-changes
