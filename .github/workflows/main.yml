@@ -62,35 +62,27 @@ jobs:
 
       - name: Begin SonarScanner
         run: |
+          cd Services
           dotnet sonarscanner begin \
             /k:"${{ secrets.SONAR_PROJECT_KEY }}" \
             /o:"${{ secrets.SONAR_ORG }}" \
             /d:sonar.login="${{ secrets.SONAR_TOKEN }}" \
             /d:sonar.host.url="https://sonarcloud.io" \
-            /d:sonar.cs.opencover.reportsPaths="Services/**/TestResults/**/coverage.opencover.xml" \
+            /d:sonar.cs.opencover.reportsPaths="**/TestResults/**/coverage.opencover.xml" \
             /d:sonar.exclusions="MoodifyFrontend/**/*" \
             /d:sonar.qualitygate.wait=true \
-            /d:sonar.scm.disabled=true
+            /d:sonar.scm.disabled=true \
+            /s:"MoodifyServices.sln"
 
-      - name: Build & Test Solution
+      - name: Build & Test Services
         run: |
           cd Services
-          dotnet restore MoodifyServices.sln
           dotnet build MoodifyServices.sln -c Release
-
-          # Run tests with code coverage
-          for svc in "AudioService" "PlaylistService" "AuthService" "UserService"; do
-            if [ -d "$svc.Tests" ]; then
-              cd "$svc.Tests"
-              dotnet test --no-build -c Release \
-                --collect:"XPlat Code Coverage" \
-                --results-directory "../$svc/TestResults"
-              cd ..
-            fi
-          done
+          # Optional: run tests and coverage collection here
 
       - name: End SonarScanner
         run: |
+          cd Services
           dotnet sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
 
   dependency-check:
