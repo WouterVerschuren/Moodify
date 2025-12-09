@@ -1,5 +1,9 @@
 name: CI/CD Pipeline (AKS + ACR + Security)
 
+permissions:
+  contents: read
+  security-events: write
+
 on:
   push:
     branches: [main]
@@ -8,357 +12,316 @@ on:
   workflow_dispatch:
 
 env:
-  ACR_NAME: ${{ secrets.ACR_NAME }}
   RESOURCE_GROUP: ${{ secrets.AKS_RESOURCE_GROUP }}
   AKS_CLUSTER: ${{ secrets.AKS_CLUSTER_NAME }}
   K8S_MANIFEST_PATH: k8s
-  DOTNET_VERSION: "8.0.x"
-  NODE_VERSION: "20"
+  DOTNET_VERSION: 8.0.x
+  NODE_VERSION: 20
 
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      audio-service: ${{ steps.filter.outputs.audio-service }}
-      playlist-service: ${{ steps.filter.outputs.playlist-service }}
-      auth-service: ${{ steps.filter.outputs.auth-service }}
-      user-service: ${{ steps.filter.outputs.user-service }}
+      any_backend: ${{ steps.filter.outputs.any_backend }}
+      audio: ${{ steps.filter.outputs.audio }}
+      playlist: ${{ steps.filter.outputs.playlist }}
+      auth: ${{ steps.filter.outputs.auth }}
+      user: ${{ steps.filter.outputs.user }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v4
 
-      - id: filter
-        uses: dorny/paths-filter@v2
+      - uses: dorny/paths-filter@v3
+        id: filter
         with:
           filters: |
-            audio-service:
-              - 'Services/AudioService/**'
-            playlist-service:
-              - 'Services/PlaylistService/**'
-            auth-service:
-              - 'Services/AuthService/**'
-            user-service:
-              - 'Services/UserService/**'
-            frontend:
-              - 'MoodifyFrontend/**'
+            any_backend: 'Services/**'
+            audio:       'Services/AudioService/**'
+            playlist:    'Services/PlaylistService/**'
+            auth:        'Services/AuthService/**'
+            user:        'Services/UserService/**'
+            frontend:    'MoodifyFrontend/**'
 
-  # SonarCloud SAST + Coverage (AudioService)
   sonar:
     needs: detect-changes
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: needs.detect-changes.outputs.any_backend == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Restore & build AudioService
-        working-directory: ./Services/AudioService
+      - name: Install SonarScanner for .NET
         run: |
-          dotnet restore
-          dotnet build --configuration Release
+          dotnet tool install --global dotnet-sonarscanner --version 5.*
+          export PATH="$PATH:/home/runner/.dotnet/tools"
 
-      - name: Install dotnet-sonarscanner
-        run: dotnet tool install --global dotnet-sonarscanner --version 5.11.0 || true
-
-      - name: Add dotnet tools to PATH
-        run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
-
-      - name: Run SonarScanner Begin
-        working-directory: ./Services/AudioService
+      - name: Begin SonarScanner
         run: |
-          dotnet sonarscanner begin /k:"${{ secrets.SONAR_PROJECT_KEY }}" /o:"${{ secrets.SONAR_ORG }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.login="${{ secrets.SONAR_TOKEN }}" /d:sonar.coverage.exclusions="**/Tests/**" /d:sonar.cs.opencover.reportsPaths="./TestResults/coverage.opencover.xml" /d:sonar.qualitygate.wait=true
+          dotnet sonarscanner begin \
+            /k:"${{ secrets.SONAR_PROJECT_KEY }}" \
+            /o:"${{ secrets.SONAR_ORG }}" \
+            /d:sonar.login="${{ secrets.SONAR_TOKEN }}" \
+            /d:sonar.host.url="https://sonarcloud.io" \
+            /d:sonar.cs.opencover.reportsPaths="Services/**/TestResults/**/coverage.opencover.xml" \
+            /d:sonar.exclusions="MoodifyFrontend/**/*" \
+            /d:sonar.qualitygate.wait=true \
+            /d:sonar.scm.disabled=true
 
-      - name: Run tests & collect coverage
-        working-directory: ./Services/AudioService.Tests
+      - name: Build & Test Solution
         run: |
-          dotnet test --configuration Release --no-build --logger "trx;LogFileName=test_results.trx" --collect:"XPlat Code Coverage"
-          dotnet tool install --global coverlet.console --version 1.7.2 || true
+          cd Services
+          dotnet restore MoodifyServices.sln
+          dotnet build MoodifyServices.sln -c Release
 
-      - name: Run SonarScanner End
-        working-directory: ./Services/AudioService
-        run: dotnet sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
+          # Run tests with code coverage
+          for svc in "AudioService" "PlaylistService" "AuthService" "UserService"; do
+            if [ -d "$svc.Tests" ]; then
+              cd "$svc.Tests"
+              dotnet test --no-build -c Release \
+                --collect:"XPlat Code Coverage" \
+                --results-directory "../$svc/TestResults"
+              cd ..
+            fi
+          done
 
-  # OWASP Dependency-Check (AudioService)
+      - name: End SonarScanner
+        run: |
+          dotnet sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
+
   dependency-check:
     needs: detect-changes
+    if: needs.detect-changes.outputs.any_backend == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    if: needs.detect-changes.outputs.audio-service == 'true' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      security-events: write
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run OWASP Dependency-Check
-        run: |
-          mkdir -p dependency-check-output
-          docker run --rm \
-            -v "$(pwd)":/src \
-            -v "$(pwd)/dependency-check-output":/report \
-            owasp/dependency-check:latest \
-            --project "moodify-audio-service" \
-            --scan /src/Services/AudioService \
-            --format "ALL" \
-            --out /report \
-            --failOnCVSS 7
-
-      - name: Upload HTML artifact
-        uses: actions/upload-artifact@v4
+      - uses: dependency-check/Dependency-Check_Action@main
         with:
-          name: dependency-check-report
-          path: dependency-check-output
+          path: ./Services
+          project: Moodify-Backend
+          format: ALL
+          args: --failOnCVSS 7 --out reports --enableExperimental
 
-      - name: Upload SARIF to GitHub Security Tab
-        uses: github/codeql-action/upload-sarif@v2
+      - uses: actions/upload-artifact@v4
         with:
-          sarif_file: dependency-check-output/dependency-check-report.sarif
+          name: dependency-check-reports
+          path: reports/**
 
-  # Build & push microservices (Audio, Playlist, Auth, User) + Frontend
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: reports/dependency-check-report.sarif
+
   build-audio:
     needs: [detect-changes, sonar, dependency-check]
-    if: needs.detect-changes.outputs.audio-service == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.detect-changes.outputs.audio == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    env:
-      IMAGE_NAME: $ACR_NAME.azurecr.io/audioservice
+
     steps:
       - uses: actions/checkout@v4
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-      - name: Restore & build AudioService
-        working-directory: ./Services/AudioService
-        run: |
-          dotnet restore
-          dotnet build --configuration Release --no-restore
-      - name: Run tests
-        working-directory: ./Services/AudioService.Tests
-        run: dotnet test --configuration Release --no-build
-      - name: Azure Login
-        uses: azure/login@v1
+
+      - run: cd Services/AudioService && dotnet restore && dotnet build -c Release --no-restore
+
+      - uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-      - name: Azure ACR Login
-        run: az acr login --name $ACR_NAME
-      - name: Build & push Docker image
-        run: |
-          FULL_NAME=$ACR_NAME.azurecr.io/audioservice:$GITHUB_SHA
-          docker build -t $FULL_NAME ./Services/AudioService
-          docker tag $FULL_NAME $ACR_NAME.azurecr.io/audioservice:latest
-          docker push $FULL_NAME
-          docker push $ACR_NAME.azurecr.io/audioservice:latest
+
+      - run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - run: |
+          IMG=${{ secrets.ACR_NAME }}.azurecr.io/audioservice
+          docker build -t $IMG:${{ github.sha }} -t $IMG:latest Services/AudioService
+          docker push $IMG:${{ github.sha }} && docker push $IMG:latest
 
   build-playlist:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.playlist-service == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [detect-changes, sonar, dependency-check]
+    if: needs.detect-changes.outputs.playlist == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    env:
-      IMAGE_NAME: $ACR_NAME.azurecr.io/playlistservice
+
     steps:
       - uses: actions/checkout@v4
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-      - name: Restore & build PlaylistService
-        working-directory: ./Services/PlaylistService
-        run: |
-          dotnet restore
-          dotnet build --configuration Release --no-restore
-      - name: Run tests
-        working-directory: ./Services/PlaylistService.Tests
-        run: dotnet test --configuration Release --no-build
-      - name: Azure Login
-        uses: azure/login@v1
+
+      - run: cd Services/PlaylistService && dotnet restore && dotnet build -c Release --no-restore
+
+      - uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-      - name: Azure ACR Login
-        run: az acr login --name $ACR_NAME
-      - name: Build & push Docker image
-        run: |
-          FULL_NAME=$ACR_NAME.azurecr.io/playlistservice:$GITHUB_SHA
-          docker build -t $FULL_NAME ./Services/PlaylistService
-          docker tag $FULL_NAME $ACR_NAME.azurecr.io/playlistservice:latest
-          docker push $FULL_NAME
-          docker push $ACR_NAME.azurecr.io/playlistservice:latest
+
+      - run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - run: |
+          IMG=${{ secrets.ACR_NAME }}.azurecr.io/playlistservice
+          docker build -t $IMG:${{ github.sha }} -t $IMG:latest Services/PlaylistService
+          docker push $IMG:${{ github.sha }} && docker push $IMG:latest
 
   build-auth:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.auth-service == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [detect-changes, sonar, dependency-check]
+    if: needs.detect-changes.outputs.auth == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    env:
-      IMAGE_NAME: $ACR_NAME.azurecr.io/authservice
+
     steps:
       - uses: actions/checkout@v4
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-      - name: Restore & build AuthService
-        working-directory: ./Services/AuthService
-        run: |
-          dotnet restore
-          dotnet build --configuration Release --no-restore
-      - name: Run tests
-        working-directory: ./Services/AuthService.Tests
-        run: dotnet test --configuration Release --no-build
-      - name: Azure Login
-        uses: azure/login@v1
+
+      - run: cd Services/AuthService && dotnet restore && dotnet build -c Release --no-restore
+
+      - uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-      - name: Azure ACR Login
-        run: az acr login --name $ACR_NAME
-      - name: Build & push Docker image
-        run: |
-          FULL_NAME=$ACR_NAME.azurecr.io/authservice:$GITHUB_SHA
-          docker build -t $FULL_NAME ./Services/AuthService
-          docker tag $FULL_NAME $ACR_NAME.azurecr.io/authservice:latest
-          docker push $FULL_NAME
-          docker push $ACR_NAME.azurecr.io/authservice:latest
+
+      - run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - run: |
+          IMG=${{ secrets.ACR_NAME }}.azurecr.io/authservice
+          docker build -t $IMG:${{ github.sha }} -t $IMG:latest Services/AuthService
+          docker push $IMG:${{ github.sha }} && docker push $IMG:latest
 
   build-user:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.user-service == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [detect-changes, sonar, dependency-check]
+    if: needs.detect-changes.outputs.user == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    env:
-      IMAGE_NAME: $ACR_NAME.azurecr.io/userservice
+
     steps:
       - uses: actions/checkout@v4
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-      - name: Restore & build UserService
-        working-directory: ./Services/UserService
-        run: |
-          dotnet restore
-          dotnet build --configuration Release --no-restore
-      - name: Run tests
-        working-directory: ./Services/UserService.Tests
-        run: dotnet test --configuration Release --no-build
-      - name: Azure Login
-        uses: azure/login@v1
+
+      - run: cd Services/UserService && dotnet restore && dotnet build -c Release --no-restore
+
+      - uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-      - name: Azure ACR Login
-        run: az acr login --name $ACR_NAME
-      - name: Build & push Docker image
+
+      - run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - run: |
+          IMG=${{ secrets.ACR_NAME }}.azurecr.io/userservice
+          docker build -t $IMG:${{ github.sha }} -t $IMG:latest Services/UserService
+          docker push $IMG:${{ github.sha }} && docker push $IMG:latest
+
+  build-frontend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: MoodifyFrontend/package-lock.json
+
+      - run: cd MoodifyFrontend && npm ci && npm run build
+
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - run: |
+          IMG=${{ secrets.ACR_NAME }}.azurecr.io/moodify-frontend
+          docker build -t $IMG:${{ github.sha }} -t $IMG:latest MoodifyFrontend
+          docker push $IMG:${{ github.sha }} && docker push $IMG:latest
+
+  zap:
+    needs: [build-audio, build-playlist, build-auth, build-user]
+    if: github.event_name == 'workflow_dispatch' ||
+      needs.detect-changes.outputs.audio == 'true' ||
+      needs.detect-changes.outputs.playlist == 'true' ||
+      needs.detect-changes.outputs.auth == 'true' ||
+      needs.detect-changes.outputs.user == 'true'
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - AudioService
+          - PlaylistService
+          - AuthService
+          - UserService
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker container for ${{ matrix.service }}
         run: |
-          FULL_NAME=$ACR_NAME.azurecr.io/userservice:$GITHUB_SHA
-          docker build -t $FULL_NAME ./Services/UserService
-          docker tag $FULL_NAME $ACR_NAME.azurecr.io/userservice:latest
-          docker push $FULL_NAME
-          docker push $ACR_NAME.azurecr.io/userservice:latest
+          IMG=test-${{ matrix.service }}
+          docker build -t $IMG Services/${{ matrix.service }}
 
-# Frontend build & push
-build-frontend:
-  needs: detect-changes
-  if: needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
-  runs-on: ubuntu-latest
-  env:
-    IMAGE_NAME: $ACR_NAME.azurecr.io/moodify-frontend
-  steps:
-    - uses: actions/checkout@v4
-    - name: Setup Node
-      uses: actions/setup-node@v3
-      with:
-        node-version: ${{ env.NODE_VERSION }}
-    - name: Install frontend deps
-      working-directory: ./MoodifyFrontend
-      run: npm ci
-    - name: Build frontend
-      working-directory: ./MoodifyFrontend
-      run: npm run build
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-    - name: Azure ACR Login
-      run: az acr login --name $ACR_NAME
-    - name: Build & push Docker image
-      run: |
-        FULL_NAME=$ACR_NAME.azurecr.io/moodify-frontend:$GITHUB_SHA
-        docker build -t $FULL_NAME ./MoodifyFrontend
-        docker tag $FULL_NAME $ACR_NAME.azurecr.io/moodify-frontend:latest
-        docker push $FULL_NAME
-        docker push $ACR_NAME.azurecr.io/moodify-frontend:latest
+      - name: Run service container
+        run: docker run -d --name svc-${{ matrix.service }} -p 8080:8080 test-${{ matrix.service }}
 
-# OWASP ZAP Baseline Scan
-zap-scan:
-  needs: [build-audio]
-  runs-on: ubuntu-latest
-  if: always()
-  steps:
-    - uses: actions/checkout@v4
-    - name: Start audio service in background
-      run: |
-        docker build -t local-audio-test ./Services/AudioService
-        docker run -d --name local-audio-test -p 8080:8080 local-audio-test
-    - name: Wait for service to be ready
-      run: |
-        for i in $(seq 1 30); do
-          if curl -sS http://localhost:8080/api/Audio/health >/dev/null; then
-            echo "service ready" && break
-          fi
-          sleep 2
-        done
-    - name: Run OWASP ZAP baseline scan
-      uses: zaproxy/action-baseline@v0.5.0
-      with:
-        target: "http://host.docker.internal:8080"
-        failOnError: true
-        rules: "default"
-        cmdOptions: "-r zap-report.html -J zap-report.json -d"
-    - name: Upload ZAP artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: zap-report
-        path: |
-          zap-report.html
-          zap-report.json
-    - name: Stop local audio container
-      run: docker rm -f local-audio-test || true
+      - name: Wait for service ready
+        run: |
+          for i in {1..50}; do
+            if curl -f http://localhost:8080/health >/dev/null 2>&1; then
+              echo "Service ready!"
+              break
+            fi
+            sleep 3
+          done
 
-# Deploy to AKS
-deploy:
-  needs:
-    [
-      build-audio,
-      build-playlist,
-      build-auth,
-      build-user,
-      build-frontend,
-      zap-scan,
-    ]
-  runs-on: ubuntu-latest
-  environment: production
-  steps:
-    - uses: actions/checkout@v4
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-    - name: Set AKS credentials
-      run: |
-        az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER --overwrite-existing
-    - name: Update k8s manifests with new image tags
-      run: |
-        for svc in audioservice playlistservice authservice userservice frontend; do
-          find $GITHUB_WORKSPACE/$K8S_MANIFEST_PATH -type f -name "*.yaml" -print0 | xargs -0 sed -i "s|moodifyacr1764849759.azurecr.io/$svc:.*|$ACR_NAME.azurecr.io/$svc:$GITHUB_SHA|g"
-        done
-    - name: Apply k8s manifests
-      run: kubectl apply -f $GITHUB_WORKSPACE/$K8S_MANIFEST_PATH
-    - name: Wait for rollout
-      run: |
-        for dep in audioservice playlistservice authservice userservice frontend; do
-          kubectl rollout status deployment/$dep --namespace default --timeout=180s || true
-        done
-    - name: Post-deploy smoke test
-      run: |
-        kubectl get pods -o wide
-        kubectl get svc -o wide
+      - uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: http://localhost:8080
+          fail_action: true
+
+      - name: Cleanup container
+        if: always()
+        run: docker rm -f svc-${{ matrix.service }}
+
+  deploy:
+    needs:
+      [
+        sonar,
+        dependency-check,
+        build-audio,
+        build-playlist,
+        build-auth,
+        build-user,
+        build-frontend,
+        zap,
+      ]
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    environment: production
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - run: |
+          az aks get-credentials --resource-group ${{ env.RESOURCE_GROUP }} --name ${{ env.AKS_CLUSTER }} --overwrite-existing
+          find ${{ env.K8S_MANIFEST_PATH }} -type f -name "*.yaml" -exec sed -i \
+            "s|${{ secrets.ACR_NAME }}.azurecr.io/[^:]*|&:${{ github.sha }}|g" {} +
+          kubectl apply -f ${{ env.K8S_MANIFEST_PATH }}
+
+          kubectl rollout status deployment/audioservice --timeout=5m || true
+          kubectl rollout status deployment/playlistservice --timeout=5m || true
+          kubectl rollout status deployment/authservice --timeout=5m || true
+          kubectl rollout status deployment/userservice --timeout=5m || true
+          kubectl rollout status deployment/frontend --timeout=5m || true

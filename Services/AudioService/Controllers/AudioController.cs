@@ -45,8 +45,10 @@ namespace AudioService.Controllers
                 return BadRequest("No song IDs provided.");
 
             var idList = ids.Split(',')
-                        .Select(id => Guid.Parse(id)) 
-                        .ToList();
+                .Select(id => Guid.TryParse(id, out var parsed) ? parsed : Guid.Empty)
+                .Where(g => g != Guid.Empty)
+                .ToList();
+
 
             var songs = await _supabase.GetSongsByIdsAsync(idList);
 

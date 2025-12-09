@@ -7,11 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuthService", "AuthService\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AudioService", "AudioService\AudioService.csproj", "{91CE24F4-D9E6-4468-8C5B-B9B10F1E9EF1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AudioService.Tests", "AudioService.Tests\AudioService.Tests.csproj", "{C3ABC354-5B2A-4BDE-85B6-59074E9E88DE}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PlaylistService", "PlaylistService\PlaylistService.csproj", "{6087A59E-C128-416D-91D1-45880532FA33}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PlaylistService.Tests", "PlaylistService.Tests\PlaylistService.Tests.csproj", "{C3DB530E-DB6B-4E16-9107-9114A935612B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UserService", "userservice\UserService.csproj", "{E72196E0-6069-4B2F-8E60-67031D004E79}"
 EndProject
@@ -102,6 +98,5 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{E72196E0-6069-4B2F-8E60-67031D004E79} = {C0127DB6-3CA8-EE98-7726-A4993E48C5D4}
 	EndGlobalSection
 EndGlobal
