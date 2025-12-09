@@ -67,7 +67,6 @@ jobs:
             /o:"${{ secrets.SONAR_ORG }}" \
             /d:sonar.login="${{ secrets.SONAR_TOKEN }}" \
             /d:sonar.host.url="https://sonarcloud.io" \
-            /s:"Services/MoodifyServices.sln" \
             /d:sonar.cs.opencover.reportsPaths="Services/**/TestResults/**/coverage.opencover.xml" \
             /d:sonar.exclusions="MoodifyFrontend/**/*" \
             /d:sonar.qualitygate.wait=true \
