@@ -23,7 +23,7 @@ spec:
               service:
                 name: audioservice
                 port:
-                  number: 9000
+                  number: 8080
           - path: /api/Playlist
             pathType: Prefix
             backend:

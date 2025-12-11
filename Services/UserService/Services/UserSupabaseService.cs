@@ -152,7 +152,7 @@ namespace UserService.Services
 
         public async Task AddPlaylistToUserAsync(Guid userId, Guid playlistId)
         {
-            var json = JsonSerializer.Serialize(new { userId, playlistId });
+            var json = JsonSerializer.Serialize(new { UserId = userId, PlaylistId = playlistId });
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var request = new HttpRequestMessage(HttpMethod.Post, _restUrlUserPlaylists)
@@ -169,7 +169,7 @@ namespace UserService.Services
         public async Task RemovePlaylistFromUserAsync(Guid userId, Guid playlistId)
         {
             var request = new HttpRequestMessage(HttpMethod.Delete,
-                $"{_restUrlUserPlaylists}?userId=eq.{userId}&playlistId=eq.{playlistId}");
+                $"{_restUrlUserPlaylists}?UserId=eq.{userId}&PlaylistId=eq.{playlistId}");
             request.Headers.Add("apikey", _serviceRoleKey);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _serviceRoleKey);
 
@@ -201,22 +201,22 @@ namespace UserService.Services
         public async Task<List<Guid>> GetPlaylistsByUserAsync(Guid userId)
         {
             var request = new HttpRequestMessage(HttpMethod.Get,
-                $"{_restUrlUserPlaylists}?select=playlistId&userId=eq.{userId}");
-
+                $"{_restUrlUserPlaylists}?select=PlaylistId&UserId=eq.{userId}");
+        
             request.Headers.Add("apikey", _serviceRoleKey);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _serviceRoleKey);
-
+        
             var response = await _httpClient.SendAsync(request);
             var respContent = await response.Content.ReadAsStringAsync();
-
+        
             if (!response.IsSuccessStatusCode)
             {
                 Console.WriteLine("Supabase Error: " + respContent);
                 return new List<Guid>();
             }
-
+        
             var userPlaylists = JsonSerializer.Deserialize<List<UserPlaylist>>(respContent) ?? new List<UserPlaylist>();
-            return userPlaylists.ConvertAll(up => up.playlistId);
+            return userPlaylists.ConvertAll(up => up.PlaylistId);
         }
 
     }

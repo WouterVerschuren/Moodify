@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { Play, Music, Trash2 } from "lucide-react";
+import { Play, Music, Trash2, Plus, X } from "lucide-react";
 import "./PlaylistsPage.css";
 
 const API_HOST = "https://4.251.168.14.nip.io";
 
-const API_USER = `${API_HOST}/api/User`;
 const API_PLAYLIST = `${API_HOST}/api/Playlist`;
+const API_USER = `${API_HOST}/api/User`;
 
 export default function PlaylistsPage({
   songs,
@@ -15,8 +15,11 @@ export default function PlaylistsPage({
   currentUser,
 }) {
   const [newPlaylistName, setNewPlaylistName] = useState("");
+  const [newPlaylistDesc, setNewPlaylistDesc] = useState("");
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState(null);
+  const [selectedPlaylist, setSelectedPlaylist] = useState(null);
+  const [showAddSongs, setShowAddSongs] = useState(false);
 
   const handleCreatePlaylist = async () => {
     if (!newPlaylistName.trim()) {
@@ -34,13 +37,21 @@ export default function PlaylistsPage({
     try {
       setCreating(true);
 
-      // Step 1: Create the playlist
       console.log("Creating playlist...");
+      console.log("Request body:", {
+        name: newPlaylistName,
+        description: newPlaylistDesc || null,
+      });
+      console.log("API URL:", `${API_PLAYLIST}/create`);
+
       const createResponse = await fetch(`${API_PLAYLIST}/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name: newPlaylistName }),
+        body: JSON.stringify({
+          name: newPlaylistName,
+          description: newPlaylistDesc || null,
+        }),
       });
 
       console.log("Create playlist response status:", createResponse.status);
@@ -51,32 +62,29 @@ export default function PlaylistsPage({
         throw new Error("Failed to create playlist");
       }
 
-      // Parse response to get playlist ID
       const responseText = await createResponse.text();
       console.log("Create playlist response:", responseText);
 
-      let createData;
+      let playlist;
       try {
-        createData = JSON.parse(responseText);
+        playlist = JSON.parse(responseText);
       } catch (parseError) {
         console.error("JSON parse error:", parseError);
         throw new Error("Invalid response from server");
       }
 
-      console.log("Created playlist data:", createData);
+      console.log("Created playlist:", playlist);
 
-      // Get playlist ID from response
-      const playlist = createData.playlist || createData;
       const playlistId = playlist.id || playlist.Id;
 
       if (!playlistId) {
-        console.error("No playlist ID in response:", createData);
+        console.error("No playlist ID in response:", playlist);
         throw new Error("No playlist ID returned");
       }
 
       console.log("Created playlist ID:", playlistId);
 
-      // Step 2: Add playlist to user
+      // Add playlist to user
       console.log(`Adding playlist ${playlistId} to user ${userId}`);
       const addToUserResponse = await fetch(
         `${API_USER}/${userId}/playlists/${playlistId}`,
@@ -100,6 +108,7 @@ export default function PlaylistsPage({
       console.log("Playlist successfully added to user!");
 
       setNewPlaylistName("");
+      setNewPlaylistDesc("");
       onPlaylistsFetch();
       alert("Playlist created successfully!");
     } catch (err) {
@@ -113,18 +122,91 @@ export default function PlaylistsPage({
   const handleDeletePlaylist = async (e, playlistId) => {
     e.stopPropagation();
 
-    if (!window.confirm("Are you sure you want to delete this playlist?")) {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this playlist? This will remove it completely."
+      )
+    ) {
       return;
     }
 
-    const userId = currentUser.id || currentUser.Id;
+    const userId = currentUser?.id || currentUser?.Id;
+    if (!userId) {
+      alert("User not logged in");
+      return;
+    }
 
     try {
       setDeleting(playlistId);
+      console.log(`Deleting playlist ${playlistId} for user ${userId}...`);
 
       // Remove playlist from user's library
-      const response = await fetch(
+      const removeFromUserResp = await fetch(
         `${API_USER}/${userId}/playlists/${playlistId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+      if (!removeFromUserResp.ok)
+        throw new Error("Failed to remove playlist from user");
+      console.log("Playlist removed from user");
+
+      // Call your backend to delete playlist + all its songs
+      const deleteResp = await fetch(`${API_PLAYLIST}/${playlistId}/delete`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!deleteResp.ok) throw new Error("Failed to delete playlist");
+      console.log("Playlist deleted successfully from backend!");
+
+      onPlaylistsFetch();
+      alert("Playlist deleted successfully!");
+    } catch (err) {
+      console.error("Error deleting playlist:", err);
+      alert(err.message || "Failed to delete playlist. Please try again.");
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const handleAddSongsToPlaylist = async (playlistId, songIds) => {
+    if (!songIds || songIds.length === 0) {
+      alert("Please select at least one song");
+      return;
+    }
+
+    try {
+      console.log(`Adding songs to playlist ${playlistId}:`, songIds);
+      const response = await fetch(`${API_PLAYLIST}/${playlistId}/add-songs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(songIds),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to add songs to playlist");
+      }
+
+      onPlaylistsFetch();
+      setShowAddSongs(false);
+      setSelectedPlaylist(null);
+      alert("Songs added to playlist!");
+    } catch (err) {
+      console.error("Error adding songs:", err);
+      alert(err.message || "Failed to add songs. Please try again.");
+    }
+  };
+
+  const handleRemoveSongFromPlaylist = async (playlistId, songId) => {
+    if (!window.confirm("Remove this song from the playlist?")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_PLAYLIST}/${playlistId}/remove-song/${songId}`,
         {
           method: "DELETE",
           credentials: "include",
@@ -132,16 +214,21 @@ export default function PlaylistsPage({
       );
 
       if (!response.ok) {
-        throw new Error("Failed to delete playlist");
+        throw new Error("Failed to remove song");
       }
 
       onPlaylistsFetch();
+      alert("Song removed from playlist!");
     } catch (err) {
-      console.error("Error deleting playlist:", err);
-      alert(err.message || "Failed to delete playlist. Please try again.");
-    } finally {
-      setDeleting(null);
+      console.error("Error removing song:", err);
+      alert(err.message || "Failed to remove song. Please try again.");
     }
+  };
+
+  const openAddSongsModal = (e, playlist) => {
+    e.stopPropagation();
+    setSelectedPlaylist(playlist);
+    setShowAddSongs(true);
   };
 
   return (
@@ -151,12 +238,19 @@ export default function PlaylistsPage({
         <p className="section-description">
           Organize your music into playlists
         </p>
-        <div className="upload-form">
+        <div className="upload-form-playlist">
           <input
             type="text"
             placeholder="Playlist name"
             value={newPlaylistName}
             onChange={(e) => setNewPlaylistName(e.target.value)}
+            className="form-input"
+          />
+          <input
+            type="text"
+            placeholder="Description (optional)"
+            value={newPlaylistDesc}
+            onChange={(e) => setNewPlaylistDesc(e.target.value)}
             className="form-input"
           />
           <button
@@ -181,52 +275,168 @@ export default function PlaylistsPage({
               </p>
             </div>
           ) : (
-            playlists.map((playlist) => (
-              <div key={playlist.id || playlist.Id} className="song-card">
-                <div
-                  className="song-info"
-                  onClick={() => onPlayPlaylist(playlist)}
-                >
-                  <div className="song-icon playlist-icon">
-                    <Music size={24} color="#fff" />
-                  </div>
-                  <div>
-                    <div className="song-title">
-                      {playlist.name || playlist.Name}
+            playlists.map((playlist) => {
+              const playlistId = playlist.id || playlist.Id;
+              const songCount =
+                playlist.songIds?.length || playlist.SongIds?.length || 0;
+
+              return (
+                <div key={playlistId} className="playlist-card-wrapper">
+                  <div className="song-card">
+                    <div
+                      className="song-info"
+                      onClick={() => onPlayPlaylist(playlist)}
+                    >
+                      <div className="song-icon playlist-icon">
+                        <Music size={24} color="#fff" />
+                      </div>
+                      <div>
+                        <div className="song-title">
+                          {playlist.name || playlist.Name}
+                        </div>
+                        <div className="song-artist">{songCount} songs</div>
+                      </div>
                     </div>
-                    <div className="song-artist">
-                      {playlist.songs?.length || playlist.Songs?.length || 0}{" "}
-                      songs
+                    <div className="song-actions">
+                      <button
+                        className="add-songs-btn"
+                        onClick={(e) => openAddSongsModal(e, playlist)}
+                        title="Add songs to playlist"
+                      >
+                        <Plus size={20} />
+                      </button>
+                      <button
+                        className="play-btn-icon"
+                        onClick={() => onPlayPlaylist(playlist)}
+                        title="Play playlist"
+                        disabled={songCount === 0}
+                      >
+                        <Play size={22} className="play-icon" />
+                      </button>
+                      <button
+                        className="delete-btn-icon"
+                        onClick={(e) => handleDeletePlaylist(e, playlistId)}
+                        disabled={deleting === playlistId}
+                        title="Delete playlist"
+                      >
+                        <Trash2
+                          size={20}
+                          className={`delete-icon ${deleting === playlistId ? "deleting" : ""}`}
+                        />
+                      </button>
                     </div>
                   </div>
+
+                  {/* Show songs in playlist */}
+                  {songCount > 0 && (
+                    <div className="playlist-songs">
+                      {(playlist.songIds || playlist.SongIds || [])
+                        .slice(0, 3)
+                        .map((songId, index) => {
+                          const song = songs.find(
+                            (s) => (s.id || s.Id) === songId
+                          );
+                          if (!song) return null;
+
+                          return (
+                            <div key={songId} className="playlist-song-item">
+                              <span>
+                                {index + 1}. {song.title || song.Title}
+                              </span>
+                              <button
+                                className="remove-song-btn"
+                                onClick={() =>
+                                  handleRemoveSongFromPlaylist(
+                                    playlistId,
+                                    songId
+                                  )
+                                }
+                                title="Remove from playlist"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      {songCount > 3 && (
+                        <div className="more-songs">
+                          + {songCount - 3} more songs
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="song-actions">
-                  <button
-                    className="play-btn-icon"
-                    onClick={() => onPlayPlaylist(playlist)}
-                    title="Play playlist"
-                  >
-                    <Play size={22} className="play-icon" />
-                  </button>
-                  <button
-                    className="delete-btn-icon"
-                    onClick={(e) =>
-                      handleDeletePlaylist(e, playlist.id || playlist.Id)
-                    }
-                    disabled={deleting === (playlist.id || playlist.Id)}
-                    title="Delete playlist"
-                  >
-                    <Trash2
-                      size={20}
-                      className={`delete-icon ${deleting === (playlist.id || playlist.Id) ? "deleting" : ""}`}
-                    />
-                  </button>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
+
+      {/* Add Songs Modal */}
+      {showAddSongs && selectedPlaylist && (
+        <div className="modal-overlay" onClick={() => setShowAddSongs(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>
+                Add Songs to {selectedPlaylist.name || selectedPlaylist.Name}
+              </h3>
+              <button
+                className="modal-close"
+                onClick={() => setShowAddSongs(false)}
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <div className="modal-body">
+              {songs.length === 0 ? (
+                <p className="no-songs-message">
+                  You don't have any songs yet. Upload some first!
+                </p>
+              ) : (
+                <div className="song-selection-list">
+                  {songs.map((song) => {
+                    const songId = song.id || song.Id;
+                    const playlistSongIds =
+                      selectedPlaylist.songIds ||
+                      selectedPlaylist.SongIds ||
+                      [];
+                    const isInPlaylist = playlistSongIds.includes(songId);
+
+                    return (
+                      <div
+                        key={songId}
+                        className={`selectable-song ${isInPlaylist ? "disabled" : ""}`}
+                        onClick={() =>
+                          !isInPlaylist &&
+                          handleAddSongsToPlaylist(
+                            selectedPlaylist.id || selectedPlaylist.Id,
+                            [songId]
+                          )
+                        }
+                      >
+                        <Music size={20} />
+                        <div className="song-details">
+                          <div className="song-name">
+                            {song.title || song.Title}
+                          </div>
+                          <div className="song-artist-small">
+                            {song.artist || song.Artist}
+                          </div>
+                        </div>
+                        {isInPlaylist && (
+                          <span className="already-added">
+                            Already in playlist
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

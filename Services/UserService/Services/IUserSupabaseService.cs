@@ -17,9 +17,7 @@ namespace UserService.Services
         Task RemoveSongFromUserAsync(Guid userId, Guid songId);
         Task AddPlaylistToUserAsync(Guid userId, Guid playlistId);
         Task RemovePlaylistFromUserAsync(Guid userId, Guid playlistId);
-
         Task<List<Guid>> GetSongsByUserAsync(Guid userId);
         Task<List<Guid>> GetPlaylistsByUserAsync(Guid userId);
-
     }
 }

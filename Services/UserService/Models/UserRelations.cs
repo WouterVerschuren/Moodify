@@ -7,6 +7,6 @@ namespace UserService.Models
 
     public class UserPlaylist
     {
-        public Guid playlistId { get; set; }
+        public Guid PlaylistId { get; set; }
     }
 }

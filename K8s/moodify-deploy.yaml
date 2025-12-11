@@ -22,12 +22,12 @@ spec:
         - name: audioservice
           image: moodifyacr1764849759.azurecr.io/audioservice:latest
           ports:
-            - containerPort: 9000
+            - containerPort: 8080
           env:
             - name: ASPNETCORE_ENVIRONMENT
               value: "Production"
             - name: ASPNETCORE_URLS
-              value: "http://+:9000"
+              value: "http://+:8080"
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -56,13 +56,13 @@ spec:
           livenessProbe:
             httpGet:
               path: /api/Audio/health
-              port: 9000
+              port: 8080
             initialDelaySeconds: 10
             periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /api/Audio/health
-              port: 9000
+              port: 8080
             initialDelaySeconds: 5
             periodSeconds: 5
 ---
@@ -76,8 +76,8 @@ spec:
     app: audioservice
   ports:
     - protocol: TCP
-      port: 9000
-      targetPort: 9000
+      port: 8080
+      targetPort: 8080
 ---
 # PlaylistService
 apiVersion: apps/v1
@@ -115,7 +115,7 @@ spec:
             - name: ASPNETCORE_URLS
               value: "http://+:8080"
             - name: AUDIO_SERVICE_URL
-              value: http://audioservice:9000
+              value: http://audioservice:8080
             - name: SUPABASE_PLAYLISTSERVICE_URL
               valueFrom:
                 secretKeyRef:

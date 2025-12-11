@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { LogOut, User as UserIcon } from "lucide-react";
 import AudioPlayer from "./Components/AudioPlayer";
 import SongsPage from "./Components/SongsPage";
@@ -10,9 +10,9 @@ import "./App.css";
 const API_HOST = "https://4.251.168.14.nip.io";
 
 const API_AUDIO = `${API_HOST}/api/Audio`;
-const API_USER = `${API_HOST}/api/User`;
 const API_PLAYLIST = `${API_HOST}/api/Playlist`;
 const API_AUTH = `${API_HOST}/api/Auth`;
+const API_USER = `${API_HOST}/api/User`;
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -29,6 +29,13 @@ export default function App() {
     checkAuth();
   }, []);
 
+  useEffect(() => {
+    if (isAuthenticated && currentUser) {
+      fetchSongs();
+      fetchPlaylists();
+    }
+  }, [isAuthenticated, currentUser]);
+
   const checkAuth = async () => {
     try {
       const response = await fetch(`${API_AUTH}/verify`, {
@@ -44,11 +51,12 @@ export default function App() {
     }
   };
 
-  const fetchSongs = useCallback(async () => {
+  const fetchSongs = async () => {
     if (!currentUser) return;
 
     try {
       const userId = currentUser.id || currentUser.Id;
+
       const userSongsResponse = await fetch(`${API_USER}/${userId}/songs`, {
         credentials: "include",
       });
@@ -60,6 +68,7 @@ export default function App() {
       }
 
       const songIds = await userSongsResponse.json();
+
       if (!songIds || songIds.length === 0) {
         setSongs([]);
         return;
@@ -70,9 +79,12 @@ export default function App() {
         credentials: "include",
       });
 
-      if (!songsResponse.ok) throw new Error("Failed to fetch song details");
+      if (!songsResponse.ok) {
+        throw new Error("Failed to fetch song details");
+      }
 
       const songsData = await songsResponse.json();
+      console.log("Fetched songs:", songsData);
 
       const processedSongs = songsData.map((song) => ({
         ...song,
@@ -88,16 +100,22 @@ export default function App() {
       console.error("Error fetching songs:", err);
       setSongs([]);
     }
-  }, [currentUser]);
+  };
 
-  const fetchPlaylists = useCallback(async () => {
+  const fetchPlaylists = async () => {
     if (!currentUser) return;
 
     try {
       const userId = currentUser.id || currentUser.Id;
+
+      console.log("Fetching playlists for user:", userId);
+
+      // Step 1: Get user's playlist IDs
       const userPlaylistsResponse = await fetch(
         `${API_USER}/${userId}/playlists`,
-        { credentials: "include" }
+        {
+          credentials: "include",
+        }
       );
 
       if (!userPlaylistsResponse.ok) {
@@ -110,38 +128,45 @@ export default function App() {
       }
 
       const playlistIds = await userPlaylistsResponse.json();
+      console.log("User's playlist IDs:", playlistIds);
+
       if (!playlistIds || playlistIds.length === 0) {
+        console.log("No playlists found for user");
         setPlaylists([]);
         return;
       }
 
-      const playlistPromises = playlistIds.map(async (playlistId) => {
-        try {
-          const response = await fetch(`${API_PLAYLIST}/${playlistId}`, {
-            credentials: "include",
-          });
-          if (response.ok) return response.json();
-          return null;
-        } catch (err) {
-          console.error(`Error fetching playlist ${playlistId}:`, err);
-          return null;
-        }
-      });
+      // Step 2: Use batch endpoint to get all playlists at once
+      const idsString = playlistIds
+        .map((id) => id.replace(/['"\[\]]/g, "")) // remove quotes/brackets if any
+        .join(",");
+      console.log("Fetching playlists batch:", idsString);
 
-      const playlistsData = await Promise.all(playlistPromises);
-      setPlaylists(playlistsData.filter((p) => p));
+      const playlistsResponse = await fetch(
+        `${API_PLAYLIST}/batch?ids=${idsString}`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (!playlistsResponse.ok) {
+        console.error(
+          "Failed to fetch playlists batch:",
+          playlistsResponse.status
+        );
+        setPlaylists([]);
+        return;
+      }
+
+      const playlistsData = await playlistsResponse.json();
+      console.log("Fetched playlists:", playlistsData);
+
+      setPlaylists(playlistsData);
     } catch (err) {
       console.error("Error fetching playlists:", err);
       setPlaylists([]);
     }
-  }, [currentUser]);
-
-  useEffect(() => {
-    if (isAuthenticated && currentUser) {
-      fetchSongs();
-      fetchPlaylists();
-    }
-  }, [isAuthenticated, currentUser, fetchSongs, fetchPlaylists]);
+  };
 
   const handleLogin = (user) => {
     setCurrentUser(user);
@@ -162,7 +187,6 @@ export default function App() {
     } catch (err) {
       console.error("Logout error:", err);
     }
-
     setIsAuthenticated(false);
     setCurrentUser(null);
     setSongs([]);
@@ -176,11 +200,47 @@ export default function App() {
     setCurrentIndex(0);
   };
 
-  const playPlaylist = (playlist) => {
-    if (playlist.songs && playlist.songs.length > 0) {
-      setCurrentTrack(playlist.songs[0]);
-      setCurrentPlaylist(playlist.songs);
-      setCurrentIndex(0);
+  const playPlaylist = async (playlist) => {
+    const songIds = playlist.songIds || playlist.SongIds || [];
+
+    if (!songIds || songIds.length === 0) {
+      alert("This playlist is empty");
+      return;
+    }
+
+    try {
+      // Fetch song details for all songs in the playlist
+      const idsString = songIds.join(",");
+      const songsResponse = await fetch(`${API_AUDIO}/batch?ids=${idsString}`, {
+        credentials: "include",
+      });
+
+      if (!songsResponse.ok) {
+        throw new Error("Failed to fetch playlist songs");
+      }
+
+      const playlistSongs = await songsResponse.json();
+
+      if (playlistSongs && playlistSongs.length > 0) {
+        // Process songs to ensure correct URL property
+        const processedSongs = playlistSongs.map((song) => ({
+          ...song,
+          storagePath:
+            song.signedUrl ||
+            song.SignedUrl ||
+            song.storagePath ||
+            song.StoragePath,
+        }));
+
+        setCurrentTrack(processedSongs[0]);
+        setCurrentPlaylist(processedSongs);
+        setCurrentIndex(0);
+      } else {
+        alert("Could not load playlist songs");
+      }
+    } catch (err) {
+      console.error("Error loading playlist:", err);
+      alert("Failed to load playlist");
     }
   };
 
