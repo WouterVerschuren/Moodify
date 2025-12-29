@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { LogOut, User as UserIcon } from "lucide-react";
 import AudioPlayer from "./Components/AudioPlayer";
 import SongsPage from "./Components/SongsPage";
@@ -25,22 +25,12 @@ export default function App() {
   const [currentPlaylist, setCurrentPlaylist] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  useEffect(() => {
-    if (isAuthenticated && currentUser) {
-      fetchSongs();
-      fetchPlaylists();
-    }
-  }, [isAuthenticated, currentUser]);
-
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     try {
       const response = await fetch(`${API_AUTH}/verify`, {
         credentials: "include",
       });
+
       if (response.ok) {
         const data = await response.json();
         setCurrentUser(data.user);
@@ -49,9 +39,13 @@ export default function App() {
     } catch (err) {
       console.error("Auth check failed:", err);
     }
-  };
+  }, []);
 
-  const fetchSongs = async () => {
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  const fetchSongs = useCallback(async () => {
     if (!currentUser) return;
 
     try {
@@ -62,7 +56,6 @@ export default function App() {
       });
 
       if (!userSongsResponse.ok) {
-        console.error("Failed to fetch user songs:", userSongsResponse.status);
         setSongs([]);
         return;
       }
@@ -84,7 +77,6 @@ export default function App() {
       }
 
       const songsData = await songsResponse.json();
-      console.log("Fetched songs:", songsData);
 
       const processedSongs = songsData.map((song) => ({
         ...song,
@@ -100,73 +92,59 @@ export default function App() {
       console.error("Error fetching songs:", err);
       setSongs([]);
     }
-  };
+  }, [currentUser]);
 
-  const fetchPlaylists = async () => {
+  const fetchPlaylists = useCallback(async () => {
     if (!currentUser) return;
 
     try {
       const userId = currentUser.id || currentUser.Id;
 
-      console.log("Fetching playlists for user:", userId);
-
-      // Step 1: Get user's playlist IDs
       const userPlaylistsResponse = await fetch(
         `${API_USER}/${userId}/playlists`,
-        {
-          credentials: "include",
-        }
+        { credentials: "include" }
       );
 
       if (!userPlaylistsResponse.ok) {
-        console.error(
-          "Failed to fetch user playlists:",
-          userPlaylistsResponse.status
-        );
         setPlaylists([]);
         return;
       }
 
       const playlistIds = await userPlaylistsResponse.json();
-      console.log("User's playlist IDs:", playlistIds);
 
       if (!playlistIds || playlistIds.length === 0) {
-        console.log("No playlists found for user");
         setPlaylists([]);
         return;
       }
 
-      // Step 2: Use batch endpoint to get all playlists at once
       const idsString = playlistIds
-        .map((id) => id.replace(/['"\[\]]/g, "")) // remove quotes/brackets if any
+        .map((id) => id.replace(/['"[\]]/g, ""))
         .join(",");
-      console.log("Fetching playlists batch:", idsString);
 
       const playlistsResponse = await fetch(
         `${API_PLAYLIST}/batch?ids=${idsString}`,
-        {
-          credentials: "include",
-        }
+        { credentials: "include" }
       );
 
       if (!playlistsResponse.ok) {
-        console.error(
-          "Failed to fetch playlists batch:",
-          playlistsResponse.status
-        );
         setPlaylists([]);
         return;
       }
 
       const playlistsData = await playlistsResponse.json();
-      console.log("Fetched playlists:", playlistsData);
-
       setPlaylists(playlistsData);
     } catch (err) {
       console.error("Error fetching playlists:", err);
       setPlaylists([]);
     }
-  };
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (isAuthenticated && currentUser) {
+      fetchSongs();
+      fetchPlaylists();
+    }
+  }, [isAuthenticated, currentUser, fetchSongs, fetchPlaylists]);
 
   const handleLogin = (user) => {
     setCurrentUser(user);
@@ -187,6 +165,7 @@ export default function App() {
     } catch (err) {
       console.error("Logout error:", err);
     }
+
     setIsAuthenticated(false);
     setCurrentUser(null);
     setSongs([]);
@@ -209,7 +188,6 @@ export default function App() {
     }
 
     try {
-      // Fetch song details for all songs in the playlist
       const idsString = songIds.join(",");
       const songsResponse = await fetch(`${API_AUDIO}/batch?ids=${idsString}`, {
         credentials: "include",
@@ -221,23 +199,18 @@ export default function App() {
 
       const playlistSongs = await songsResponse.json();
 
-      if (playlistSongs && playlistSongs.length > 0) {
-        // Process songs to ensure correct URL property
-        const processedSongs = playlistSongs.map((song) => ({
-          ...song,
-          storagePath:
-            song.signedUrl ||
-            song.SignedUrl ||
-            song.storagePath ||
-            song.StoragePath,
-        }));
+      const processedSongs = playlistSongs.map((song) => ({
+        ...song,
+        storagePath:
+          song.signedUrl ||
+          song.SignedUrl ||
+          song.storagePath ||
+          song.StoragePath,
+      }));
 
-        setCurrentTrack(processedSongs[0]);
-        setCurrentPlaylist(processedSongs);
-        setCurrentIndex(0);
-      } else {
-        alert("Could not load playlist songs");
-      }
+      setCurrentTrack(processedSongs[0]);
+      setCurrentPlaylist(processedSongs);
+      setCurrentIndex(0);
     } catch (err) {
       console.error("Error loading playlist:", err);
       alert("Failed to load playlist");
