@@ -6,6 +6,7 @@ const API_HOST = "https://4.251.168.14.nip.io";
 
 const API_AUDIO = `${API_HOST}/api/Audio`;
 const API_USER = `${API_HOST}/api/User`;
+const API_PLAYLIST = `${API_HOST}/api/Playlist`;
 
 export default function SongsPage({
   songs,
@@ -140,7 +141,7 @@ export default function SongsPage({
 
     if (
       !window.confirm(
-        "Are you sure you want to remove this song from your library?"
+        "Are you sure you want to remove this song from your library? This will also remove it from all playlists."
       )
     ) {
       return;
@@ -151,6 +152,22 @@ export default function SongsPage({
     try {
       setDeleting(songId);
 
+      // Step 1: Remove song from all playlists
+      const removeFromPlaylistsResponse = await fetch(
+        `${API_PLAYLIST}/remove-from-playlists/${songId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+
+      if (!removeFromPlaylistsResponse.ok) {
+        const errorText = await removeFromPlaylistsResponse.text();
+        console.error("Remove from playlists failed:", errorText);
+        throw new Error("Failed to remove song from playlists");
+      }
+
+      // Step 2: Remove song from user library
       const response = await fetch(`${API_USER}/${userId}/songs/${songId}`, {
         method: "DELETE",
         credentials: "include",
@@ -161,6 +178,7 @@ export default function SongsPage({
       }
 
       onSongsFetch();
+      alert("Song removed successfully!");
     } catch (err) {
       console.error("Error deleting song:", err);
       alert(err.message || "Failed to remove song. Please try again.");

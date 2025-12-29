@@ -149,4 +149,14 @@ public class PlaylistSupabaseService : IPlaylistSupabaseService
         if (!deletePlaylistResponse.IsSuccessStatusCode)
             throw new Exception($"Supabase error deleting playlist: {deletePlaylistResponse.StatusCode} - {deletePlaylistBody}");
     }
+
+    public async Task RemoveSongFromAllPlaylistsAsync(Guid songId)
+    {
+        var response = await _httpClient.DeleteAsync($"{_restUrl}/PlaylistSongs?songId=eq.{songId}");
+        var responseBody = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+            throw new Exception($"Supabase error removing song from playlists: {response.StatusCode} - {responseBody}");
+    }
+
 }

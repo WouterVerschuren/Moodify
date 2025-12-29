@@ -105,4 +105,18 @@ public class PlaylistController : ControllerBase
         return Ok(new { Message = "Playlist deleted successfully." });
     }
 
+    [HttpDelete("remove-from-playlists/{songId}")]
+    public async Task<IActionResult> RemoveSongFromAllPlaylists(Guid songId)
+    {
+        try
+        {
+            await _supabaseService.RemoveSongFromAllPlaylistsAsync(songId);
+            return Ok(new { Message = "Song removed from all playlists successfully." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { Message = ex.Message });
+        }
+    }
+
 }

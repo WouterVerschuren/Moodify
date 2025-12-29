@@ -12,4 +12,6 @@ public interface IPlaylistSupabaseService
     Task DeletePlaylistAsync(Guid playlistId);
     Task<List<Guid>> GetSongIdsAsync(Guid playlistId);
     Task<List<Playlist>> GetAllPlaylistsAsync();
+    Task RemoveSongFromAllPlaylistsAsync(Guid songId);
+    
 }
