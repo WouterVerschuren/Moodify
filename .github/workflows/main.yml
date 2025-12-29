@@ -71,8 +71,7 @@ jobs:
             /d:sonar.cs.opencover.reportsPaths="**/TestResults/**/coverage.opencover.xml" \
             /d:sonar.exclusions="MoodifyFrontend/**/*" \
             /d:sonar.qualitygate.wait=true \
-            /d:sonar.scm.disabled=true \
-            /s:"MoodifyServices.sln"
+            /d:sonar.scm.disabled=true 
 
       - name: Build & Test Services
         run: |
