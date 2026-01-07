@@ -156,7 +156,7 @@ jobs:
 
       - run: |
           IMG=${{ secrets.ACR_NAME }}.azurecr.io/playlistservice
-          docker build -t $IMG:${{ github.sha }} -t $IMG:latest Services/PlaylistService
+          docker build -t $IMG:${{ github.sha }} -t $IMG:latest Services/PlayListService
           docker push $IMG:${{ github.sha }} && docker push $IMG:latest
 
   build-auth:
