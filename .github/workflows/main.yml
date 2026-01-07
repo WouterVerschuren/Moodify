@@ -37,7 +37,7 @@ jobs:
           filters: |
             any_backend: 'Services/**'
             audio:       'Services/AudioService/**'
-            playlist:    'Services/PlaylistService/**'
+            playlist:    'Services/PlayListService/**'
             auth:        'Services/AuthService/**'
             user:        'Services/UserService/**'
             frontend:    'MoodifyFrontend/**'
@@ -146,7 +146,7 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - run: cd Services/PlaylistService && dotnet restore && dotnet build -c Release --no-restore
+      - run: cd Services/PlayListService && dotnet restore && dotnet build -c Release --no-restore
 
       - uses: azure/login@v2
         with:
@@ -155,8 +155,8 @@ jobs:
       - run: az acr login --name ${{ secrets.ACR_NAME }}
 
       - run: |
-          IMG=${{ secrets.ACR_NAME }}.azurecr.io/playlistservice
-          docker build -t $IMG:${{ github.sha }} -t $IMG:latest Services/PlaylistService
+          IMG=${{ secrets.ACR_NAME }}.azurecr.io/playListservice
+          docker build -t $IMG:${{ github.sha }} -t $IMG:latest Services/PlayListService
           docker push $IMG:${{ github.sha }} && docker push $IMG:latest
 
   build-auth:
@@ -248,7 +248,7 @@ jobs:
       matrix:
         service:
           - AudioService
-          - PlaylistService
+          - PlayListService
           - AuthService
           - UserService
 
@@ -312,7 +312,7 @@ jobs:
           kubectl apply -f ${{ env.K8S_MANIFEST_PATH }}
 
           kubectl rollout status deployment/audioservice --timeout=5m || true
-          kubectl rollout status deployment/playlistservice --timeout=5m || true
+          kubectl rollout status deployment/playListservice --timeout=5m || true
           kubectl rollout status deployment/authservice --timeout=5m || true
           kubectl rollout status deployment/userservice --timeout=5m || true
           kubectl rollout status deployment/frontend --timeout=5m || true
