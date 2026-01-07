@@ -257,11 +257,15 @@ jobs:
 
       - name: Build Docker container for ${{ matrix.service }}
         run: |
-          IMG=test-${{ matrix.service }}
-          docker build -t $IMG Services/${{ matrix.service }}
+              SERVICE_LOWER=$(echo "${{ matrix.service }}" | tr '[:upper:]' '[:lower:]')
+              IMG=test-$SERVICE_LOWER
+              docker build -t $IMG Services/${{ matrix.service }}
 
       - name: Run service container
-        run: docker run -d --name svc-${{ matrix.service }} -p 8080:8080 test-${{ matrix.service }}
+        run: |
+              SERVICE_LOWER=$(echo "${{ matrix.service }}" | tr '[:upper:]' '[:lower:]')
+              docker run -d --name svc-$SERVICE_LOWER -p 8080:8080 test-$SERVICE_LOWER
+
 
       - name: Wait for service ready
         run: |
@@ -280,7 +284,9 @@ jobs:
 
       - name: Cleanup container
         if: always()
-        run: docker rm -f svc-${{ matrix.service }}
+        run: |
+            SERVICE_LOWER=$(echo "${{ matrix.service }}" | tr '[:upper:]' '[:lower:]')
+            docker rm -f svc-$SERVICE_LOWER
 
   deploy:
     needs:
