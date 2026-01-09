@@ -223,11 +223,7 @@ jobs:
             url: https://4.251.168.14.nip.io/api/Auth/health
           - service: User
             url: https://4.251.168.14.nip.io/api/User/health
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: ZAP Baseline Scan - ${{ matrix.service }}
         uses: zaproxy/action-baseline@v0.12.0
         with:
@@ -235,35 +231,34 @@ jobs:
           fail_action: false
           cmd_options: >
             -I
-            -J zap-report-${{ matrix.service }}.json
+            -J ${{ github.workspace }}/zap-report-${{ matrix.service }}.json
 
       - name: Upload ZAP JSON report
         uses: actions/upload-artifact@v4
         with:
           name: zap-report-${{ matrix.service }}
-          path: zap-report-${{ matrix.service }}.json
+          path: ${{ github.workspace }}/zap-report-${{ matrix.service }}.json
 
   deploy:
     needs:
-      - sonar
-      - dependency-check
-      - build-audio
-      - build-playlist
-      - build-auth
-      - build-user
-      - build-frontend
-      - zap-security-scan
+      [
+        sonar,
+        dependency-check,
+        build-audio,
+        build-playlist,
+        build-auth,
+        build-user,
+        build-frontend,
+        zap-security-scan
+      ]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     environment: production
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-
       - run: |
           az aks get-credentials --resource-group ${{ env.RESOURCE_GROUP }} --name ${{ env.AKS_CLUSTER }} --overwrite-existing
           find ${{ env.K8S_MANIFEST_PATH }} -type f -name "*.yaml" -exec sed -i \
