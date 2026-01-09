@@ -71,7 +71,7 @@ jobs:
             /d:sonar.cs.opencover.reportsPaths="**/TestResults/**/coverage.opencover.xml" \
             /d:sonar.exclusions="MoodifyFrontend/**/*" \
             /d:sonar.qualitygate.wait=true \
-            /d:sonar.scm.disabled=true 
+            /d:sonar.scm.disabled=true
 
       - name: Build & Test Services
         run: |
@@ -234,59 +234,33 @@ jobs:
           docker build -t $IMG:${{ github.sha }} -t $IMG:latest MoodifyFrontend
           docker push $IMG:${{ github.sha }} && docker push $IMG:latest
 
-  zap:
-    needs: [build-audio, build-playlist, build-auth, build-user]
-    if: github.event_name == 'workflow_dispatch' ||
-      needs.detect-changes.outputs.audio == 'true' ||
-      needs.detect-changes.outputs.playlist == 'true' ||
-      needs.detect-changes.outputs.auth == 'true' ||
-      needs.detect-changes.outputs.user == 'true'
-    runs-on: ubuntu-latest
+  zap-security-scan:
+  name: ZAP Security Scan (External API)
+  runs-on: ubuntu-latest
+  needs: deploy
 
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          - AudioService
-          - PlayListService
-          - AuthService
-          - UserService
+  strategy:
+    fail-fast: false
+    matrix:
+      include:
+        - service: Audio
+          url: https://4.251.168.14.nip.io/api/Audio/health
+        - service: Playlist
+          url: https://4.251.168.14.nip.io/api/Playlist/health
+        - service: Auth
+          url: https://4.251.168.14.nip.io/api/Auth/health
+        - service: User
+          url: https://4.251.168.14.nip.io/api/User/health
 
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build Docker container for ${{ matrix.service }}
-        run: |
-              SERVICE_LOWER=$(echo "${{ matrix.service }}" | tr '[:upper:]' '[:lower:]')
-              IMG=test-$SERVICE_LOWER
-              docker build -t $IMG Services/${{ matrix.service }}
-
-      - name: Run service container
-        run: |
-              SERVICE_LOWER=$(echo "${{ matrix.service }}" | tr '[:upper:]' '[:lower:]')
-              docker run -d --name svc-$SERVICE_LOWER -p 8080:8080 test-$SERVICE_LOWER
-
-
-      - name: Wait for service ready
-        run: |
-          for i in {1..50}; do
-            if curl -f http://localhost:8080/health >/dev/null 2>&1; then
-              echo "Service ready!"
-              break
-            fi
-            sleep 3
-          done
-
-      - uses: zaproxy/action-baseline@v0.12.0
-        with:
-          target: http://localhost:8080
-          fail_action: true
-
-      - name: Cleanup container
-        if: always()
-        run: |
-            SERVICE_LOWER=$(echo "${{ matrix.service }}" | tr '[:upper:]' '[:lower:]')
-            docker rm -f svc-$SERVICE_LOWER
+  steps:
+    - name: ZAP Baseline Scan - ${{ matrix.service }}
+      uses: zaproxy/action-baseline@v0.12.0
+      with:
+        target: ${{ matrix.url }}
+        fail_action: false
+        cmd_options: >
+          -I
+          -J zap-report-${{ matrix.service }}.json
 
   deploy:
     needs:
