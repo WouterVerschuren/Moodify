@@ -235,71 +235,58 @@ jobs:
           docker push $IMG:${{ github.sha }} && docker push $IMG:latest
 
   zap:
-  needs: [build-audio, build-playlist, build-auth, build-user]
-  if: github.event_name == 'workflow_dispatch' ||
-    needs.detect-changes.outputs.audio == 'true' ||
-    needs.detect-changes.outputs.playlist == 'true' ||
-    needs.detect-changes.outputs.auth == 'true' ||
-    needs.detect-changes.outputs.user == 'true'
+    needs: [build-audio, build-playlist, build-auth, build-user]
+    if: github.event_name == 'workflow_dispatch' ||
+      needs.detect-changes.outputs.audio == 'true' ||
+      needs.detect-changes.outputs.playlist == 'true' ||
+      needs.detect-changes.outputs.auth == 'true' ||
+      needs.detect-changes.outputs.user == 'true'
+    runs-on: ubuntu-latest
 
-  runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - AudioService
+          - PlayListService
+          - AuthService
+          - UserService
 
-  strategy:
-    fail-fast: false
-    matrix:
-      include:
-        - service: AudioService
-          port: 8081
-          health: /api/Audio/health
-        - service: PlayListService
-          port: 8082
-          health: /api/Playlist/health
-        - service: AuthService
-          port: 8083
-          health: /api/Auth/health
-        - service: UserService
-          port: 8084
-          health: /api/User/health
+    steps:
+      - uses: actions/checkout@v4
 
-  steps:
-    - uses: actions/checkout@v4
+      - name: Build Docker container for ${{ matrix.service }}
+        run: |
+              SERVICE_LOWER=$(echo "${{ matrix.service }}" | tr '[:upper:]' '[:lower:]')
+              IMG=test-$SERVICE_LOWER
+              docker build -t $IMG Services/${{ matrix.service }}
 
-    - name: Build Docker container for ${{ matrix.service }}
-      run: |
-        SERVICE_LOWER=$(echo "${{ matrix.service }}" | tr '[:upper:]' '[:lower:]')
-        docker build -t test-$SERVICE_LOWER Services/${{ matrix.service }}
+      - name: Run service container
+        run: |
+              SERVICE_LOWER=$(echo "${{ matrix.service }}" | tr '[:upper:]' '[:lower:]')
+              docker run -d --name svc-$SERVICE_LOWER -p 8080:8080 test-$SERVICE_LOWER
 
-    - name: Run service container
-      run: |
-        SERVICE_LOWER=$(echo "${{ matrix.service }}" | tr '[:upper:]' '[:lower:]')
-        docker run -d \
-          --name svc-$SERVICE_LOWER \
-          -p ${{ matrix.port }}:8080 \
-          test-$SERVICE_LOWER
 
-    - name: Wait for service ready
-      run: |
-        for i in {1..30}; do
-          if curl -f http://localhost:${{ matrix.port }}${{ matrix.health }} >/dev/null 2>&1; then
-            echo "Service ready!"
-            exit 0
-          fi
-          sleep 3
-        done
-        echo "Service did not become healthy"
-        exit 1
+      - name: Wait for service ready
+        run: |
+          for i in {1..50}; do
+            if curl -f http://localhost:8080/health >/dev/null 2>&1; then
+              echo "Service ready!"
+              break
+            fi
+            sleep 3
+          done
 
-    - name: ZAP Baseline Scan
-      uses: zaproxy/action-baseline@v0.12.0
-      with:
-        target: http://localhost:${{ matrix.port }}${{ matrix.health }}
-        fail_action: false
+      - uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: http://localhost:8080
+          fail_action: true
 
-    - name: Cleanup container
-      if: always()
-      run: |
-        SERVICE_LOWER=$(echo "${{ matrix.service }}" | tr '[:upper:]' '[:lower:]')
-        docker rm -f svc-$SERVICE_LOWER
+      - name: Cleanup container
+        if: always()
+        run: |
+            SERVICE_LOWER=$(echo "${{ matrix.service }}" | tr '[:upper:]' '[:lower:]')
+            docker rm -f svc-$SERVICE_LOWER
 
   deploy:
     needs:
