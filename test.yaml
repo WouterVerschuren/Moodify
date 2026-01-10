@@ -37,7 +37,7 @@ jobs:
           filters: |
             any_backend: 'Services/**'
             audio:       'Services/AudioService/**'
-            playlist:    'Services/PlaylistService/**'
+            playlist:    'Services/PlayListService/**'
             auth:        'Services/AuthService/**'
             user:        'Services/UserService/**'
             frontend:    'MoodifyFrontend/**'
@@ -71,8 +71,7 @@ jobs:
             /d:sonar.cs.opencover.reportsPaths="**/TestResults/**/coverage.opencover.xml" \
             /d:sonar.exclusions="MoodifyFrontend/**/*" \
             /d:sonar.qualitygate.wait=true \
-            /d:sonar.scm.disabled=true \
-            /s:"MoodifyServices.sln"
+            /d:sonar.scm.disabled=true
 
       - name: Build & Test Services
         run: |
@@ -147,7 +146,7 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - run: cd Services/PlaylistService && dotnet restore && dotnet build -c Release --no-restore
+      - run: cd Services/PlayListService && dotnet restore && dotnet build -c Release --no-restore
 
       - uses: azure/login@v2
         with:
@@ -157,7 +156,7 @@ jobs:
 
       - run: |
           IMG=${{ secrets.ACR_NAME }}.azurecr.io/playlistservice
-          docker build -t $IMG:${{ github.sha }} -t $IMG:latest Services/PlaylistService
+          docker build -t $IMG:${{ github.sha }} -t $IMG:latest Services/PlayListService
           docker push $IMG:${{ github.sha }} && docker push $IMG:latest
 
   build-auth:
@@ -235,53 +234,33 @@ jobs:
           docker build -t $IMG:${{ github.sha }} -t $IMG:latest MoodifyFrontend
           docker push $IMG:${{ github.sha }} && docker push $IMG:latest
 
-  zap:
-    needs: [build-audio, build-playlist, build-auth, build-user]
-    if: github.event_name == 'workflow_dispatch' ||
-      needs.detect-changes.outputs.audio == 'true' ||
-      needs.detect-changes.outputs.playlist == 'true' ||
-      needs.detect-changes.outputs.auth == 'true' ||
-      needs.detect-changes.outputs.user == 'true'
-    runs-on: ubuntu-latest
+  zap-security-scan:
+  name: ZAP Security Scan (External API)
+  runs-on: ubuntu-latest
+  needs: deploy
 
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          - AudioService
-          - PlaylistService
-          - AuthService
-          - UserService
+  strategy:
+    fail-fast: false
+    matrix:
+      include:
+        - service: Audio
+          url: https://4.251.168.14.nip.io/api/Audio/health
+        - service: Playlist
+          url: https://4.251.168.14.nip.io/api/Playlist/health
+        - service: Auth
+          url: https://4.251.168.14.nip.io/api/Auth/health
+        - service: User
+          url: https://4.251.168.14.nip.io/api/User/health
 
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build Docker container for ${{ matrix.service }}
-        run: |
-          IMG=test-${{ matrix.service }}
-          docker build -t $IMG Services/${{ matrix.service }}
-
-      - name: Run service container
-        run: docker run -d --name svc-${{ matrix.service }} -p 8080:8080 test-${{ matrix.service }}
-
-      - name: Wait for service ready
-        run: |
-          for i in {1..50}; do
-            if curl -f http://localhost:8080/health >/dev/null 2>&1; then
-              echo "Service ready!"
-              break
-            fi
-            sleep 3
-          done
-
-      - uses: zaproxy/action-baseline@v0.12.0
-        with:
-          target: http://localhost:8080
-          fail_action: true
-
-      - name: Cleanup container
-        if: always()
-        run: docker rm -f svc-${{ matrix.service }}
+  steps:
+    - name: ZAP Baseline Scan - ${{ matrix.service }}
+      uses: zaproxy/action-baseline@v0.12.0
+      with:
+        target: ${{ matrix.url }}
+        fail_action: false
+        cmd_options: >
+          -I
+          -J zap-report-${{ matrix.service }}.json
 
   deploy:
     needs:

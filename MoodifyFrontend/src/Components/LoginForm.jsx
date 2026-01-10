@@ -56,6 +56,7 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
           <div className="form-group">
             <label className="form-label">Email</label>
             <input
+              data-testid="login-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -68,6 +69,7 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
           <div className="form-group">
             <label className="form-label">Password</label>
             <input
+              data-testid="login-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -77,7 +79,12 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
             />
           </div>
 
-          <button type="submit" disabled={loading} className="auth-button">
+          <button
+            data-testid="login-submit"
+            type="submit"
+            disabled={loading}
+            className="auth-button"
+          >
             {loading ? "Logging in..." : "Login"}
           </button>
         </form>
