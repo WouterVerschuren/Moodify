@@ -14,7 +14,7 @@ on:
 env:
   RESOURCE_GROUP: ${{ secrets.AKS_RESOURCE_GROUP }}
   AKS_CLUSTER: ${{ secrets.AKS_CLUSTER_NAME }}
-  K8S_MANIFEST_PATH: k8s
+  K8S_MANIFEST_PATH: moodify/k8s
   DOTNET_VERSION: 8.0.x
   NODE_VERSION: 20
 
@@ -256,20 +256,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-
-      - name: Set up kubeconfig
-        run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
-
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
       - run: |
-          find ${{ env.K8S_MANIFEST_PATH }} -type f -name "*.yaml" -exec sed -i \
-            "s|${{ secrets.ACR_NAME }}.azurecr.io/[^:]*|&:${{ github.sha }}|g" {} +
-          kubectl apply -f ${{ env.K8S_MANIFEST_PATH }}
-
-          kubectl rollout status deployment/audioservice --timeout=5m || true
-          kubectl rollout status deployment/playlistservice --timeout=5m || true
-          kubectl rollout status deployment/authservice --timeout=5m || true
-          kubectl rollout status deployment/userservice --timeout=5m || true
-          kubectl rollout status deployment/frontend --timeout=5m || true
+          az aks get-credentials --resource-group ${{ env.RESOURCE_GROUP }} --name ${{ env.AKS_CLUSTER }} --overwrite-existing
+          if [ -d "${{ env.K8S_MANIFEST_PATH }}" ]; then
+            find ${{ env.K8S_MANIFEST_PATH }} -type f -name "*.yaml" -exec sed -i \
+              "s|${{ secrets.ACR_NAME }}.azurecr.io/[^:]*|&:${{ github.sha }}|g" {} +
+            kubectl apply -f ${{ env.K8S_MANIFEST_PATH }}
+            kubectl rollout status deployment/audioservice --timeout=5m || true
+            kubectl rollout status deployment/playlistservice --timeout=5m || true
+            kubectl rollout status deployment/authservice --timeout=5m || true
+            kubectl rollout status deployment/userservice --timeout=5m || true
+            kubectl rollout status deployment/frontend --timeout=5m || true
+          else
+            echo "Folder ${{ env.K8S_MANIFEST_PATH }} does not exist, skipping deploy."
+          fi
