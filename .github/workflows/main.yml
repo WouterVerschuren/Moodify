@@ -256,11 +256,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+
+      - name: Set up kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
+
       - run: |
-          az aks get-credentials --resource-group ${{ env.RESOURCE_GROUP }} --name ${{ env.AKS_CLUSTER }} --overwrite-existing
           find ${{ env.K8S_MANIFEST_PATH }} -type f -name "*.yaml" -exec sed -i \
             "s|${{ secrets.ACR_NAME }}.azurecr.io/[^:]*|&:${{ github.sha }}|g" {} +
           kubectl apply -f ${{ env.K8S_MANIFEST_PATH }}
