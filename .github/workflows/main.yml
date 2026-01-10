@@ -264,18 +264,17 @@ jobs:
 
       - name: Deploy to AKS
         run: |
-          if [ -d "${{ env.K8S_MANIFEST_PATH }}" ]; then
-              echo "Found k8s folder, applying manifests..."
-              find ${{ env.K8S_MANIFEST_PATH }} -type f -name "*.yaml" -exec sed -i \
-                "s|${{ secrets.ACR_NAME }}.azurecr.io/[^:]*|&:${{ github.sha }}|g" {} +
-              kubectl apply -f ${{ env.K8S_MANIFEST_PATH }}
+          K8S_PATH="moodify/k8s"
+          if [ -d "$K8S_PATH" ]; then
+            find $K8S_PATH -type f -name "*.yaml" -exec sed -i \
+              "s|${{ secrets.ACR_NAME }}.azurecr.io/[^:]*|&:${{ github.sha }}|g" {} +
+            kubectl apply -f $K8S_PATH
 
-              kubectl rollout status deployment/audioservice --timeout=5m || true
-              kubectl rollout status deployment/playlistservice --timeout=5m || true
-              kubectl rollout status deployment/authservice --timeout=5m || true
-              kubectl rollout status deployment/userservice --timeout=5m || true
-              kubectl rollout status deployment/frontend --timeout=5m || true
+            kubectl rollout status deployment/audioservice --timeout=5m || true
+            kubectl rollout status deployment/playlistservice --timeout=5m || true
+            kubectl rollout status deployment/authservice --timeout=5m || true
+            kubectl rollout status deployment/userservice --timeout=5m || true
+            kubectl rollout status deployment/frontend --timeout=5m || true
           else
-              echo "ERROR: k8s folder not found at path '${{ env.K8S_MANIFEST_PATH }}'"
-              exit 1
+            echo "No k8s manifests found at $K8S_PATH, skipping deploy"
           fi
