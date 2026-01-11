@@ -156,7 +156,7 @@ jobs:
           docker push $IMG:${{ github.sha }} && docker push $IMG:latest
 
   build-playlist:
-    needs: [detect-changes, sonar, dependency-check]
+    needs: [detect-changes, tests, sonar, dependency-check]
     if: needs.detect-changes.outputs.playlist == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
@@ -175,7 +175,7 @@ jobs:
           docker push $IMG:${{ github.sha }} && docker push $IMG:latest
 
   build-auth:
-    needs: [detect-changes, sonar, dependency-check]
+    needs: [detect-changes, tests, sonar, dependency-check]
     if: needs.detect-changes.outputs.auth == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
@@ -194,7 +194,7 @@ jobs:
           docker push $IMG:${{ github.sha }} && docker push $IMG:latest
 
   build-user:
-    needs: [detect-changes, sonar, dependency-check]
+    needs: [detect-changes, tests, sonar, dependency-check]
     if: needs.detect-changes.outputs.user == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
@@ -213,7 +213,7 @@ jobs:
           docker push $IMG:${{ github.sha }} && docker push $IMG:latest
 
   build-frontend:
-    needs: detect-changes
+    needs: [detect-changes, tests, sonar, dependency-check]
     if: needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
