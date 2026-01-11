@@ -42,6 +42,32 @@ jobs:
             user:        'Services/UserService/**'
             frontend:    'MoodifyFrontend/**'
 
+
+  tests:
+    name: Run Backend Unit Tests
+    needs: detect-changes
+    if: needs.detect-changes.outputs.any_backend == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore solution
+        run: |
+          cd Services
+          dotnet restore MoodifyServices.sln
+
+      - name: Run all backend unit tests
+        run: |
+          cd Services
+          dotnet test MoodifyServices.sln \
+            -c Release \
+            --logger trx
+
   sonar:
     needs: detect-changes
     if: needs.detect-changes.outputs.any_backend == 'true' || github.event_name == 'workflow_dispatch'
@@ -111,7 +137,7 @@ jobs:
           sarif_file: reports/dependency-check-report.sarif
 
   build-audio:
-    needs: [detect-changes, sonar, dependency-check]
+    needs: [detect-changes, tests, sonar, dependency-check]
     if: needs.detect-changes.outputs.audio == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
