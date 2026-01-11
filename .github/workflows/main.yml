@@ -236,7 +236,7 @@ jobs:
   zap-security-scan:
     name: ZAP Security Scan (External API)
     runs-on: ubuntu-latest
-    needs: [build-audio, build-playlist, build-auth, build-user]
+    needs: [build-audio, build-playlist, build-auth, build-user, build-frontend]
     strategy:
       fail-fast: false
       matrix:
