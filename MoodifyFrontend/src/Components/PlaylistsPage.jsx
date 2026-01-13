@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Play, Music, Trash2, Plus, X } from "lucide-react";
 import "./PlaylistsPage.css";
 
-const API_HOST = "https://4.251.168.14.nip.io";
+const API_HOST = "https://20.23.0.233.nip.io";
 
 const API_PLAYLIST = `${API_HOST}/api/Playlist`;
 const API_USER = `${API_HOST}/api/User`;

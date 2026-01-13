@@ -9,4 +9,4 @@ spec:
     name: letsencrypt-nipio
     kind: ClusterIssuer
   dnsNames:
-    - 4.251.168.14.nip.io
+    - 20.23.0.233.nip.io

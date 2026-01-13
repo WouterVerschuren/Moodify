@@ -12,7 +12,7 @@ import {
   User as UserIcon,
 } from "lucide-react";
 
-const API_HOST = "https://4.251.168.14.nip.io";
+const API_HOST = "https://20.23.0.233.nip.io";
 
 const API_AUTH = `${API_HOST}/api/Auth`;
 

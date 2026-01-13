@@ -3,6 +3,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: audioservice
+  namespace: moodify
 spec:
   type: ClusterIP
   selector:
@@ -16,6 +17,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: playlistservice
+  namespace: moodify
 spec:
   type: ClusterIP
   selector:
@@ -29,6 +31,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: authservice
+  namespace: moodify
 spec:
   type: ClusterIP
   selector:
@@ -42,6 +45,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: userservice
+  namespace: moodify
 spec:
   type: ClusterIP
   selector:
@@ -55,6 +59,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: frontend
+  namespace: moodify
 spec:
   type: LoadBalancer
   selector:

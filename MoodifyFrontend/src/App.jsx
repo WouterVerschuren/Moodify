@@ -7,7 +7,7 @@ import LoginForm from "./Components/LoginForm";
 import RegisterForm from "./Components/RegisterForm";
 import "./App.css";
 
-const API_HOST = "https://4.251.168.14.nip.io";
+const API_HOST = "https://20.23.0.233.nip.io";
 
 const API_AUDIO = `${API_HOST}/api/Audio`;
 const API_PLAYLIST = `${API_HOST}/api/Playlist`;

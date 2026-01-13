@@ -11,10 +11,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - "4.251.168.14.nip.io"
+        - "20.23.0.233.nip.io"
       secretName: moodify-tls
   rules:
-    - host: "4.251.168.14.nip.io"
+    - host: "20.23.0.233.nip.io"
       http:
         paths:
           - path: /api/Audio

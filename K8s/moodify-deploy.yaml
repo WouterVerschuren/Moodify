@@ -3,6 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: audioservice
+  namespace: moodify
 spec:
   replicas: 2
   strategy:
@@ -84,6 +85,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: playlistservice
+  namespace: moodify
 spec:
   replicas: 2
   strategy:
@@ -162,6 +164,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: authservice
+  namespace: moodify
 spec:
   replicas: 2
   strategy:
@@ -238,6 +241,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: userservice
+  namespace: moodify
 spec:
   replicas: 2
   strategy:
@@ -314,6 +318,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend
+  namespace: moodify
 spec:
   replicas: 2
   strategy:
