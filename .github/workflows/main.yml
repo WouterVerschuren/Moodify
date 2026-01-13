@@ -242,13 +242,13 @@ jobs:
       matrix:
         include:
           - service: Audio
-            url: https://4.251.168.14.nip.io/api/Audio/health
+            url: https://20.23.0.233.nip.io//api/Audio/health
           - service: Playlist
-            url: https://4.251.168.14.nip.io/api/Playlist/health
+            url: https://20.23.0.233.nip.io//api/Playlist/health
           - service: Auth
-            url: https://4.251.168.14.nip.io/api/Auth/health
+            url: https://20.23.0.233.nip.io//api/Auth/health
           - service: User
-            url: https://4.251.168.14.nip.io/api/User/health
+            url: https://20.23.0.233.nip.io//api/User/health
     steps:
       - name: ZAP Baseline Scan - ${{ matrix.service }}
         uses: zaproxy/action-baseline@v0.12.0
