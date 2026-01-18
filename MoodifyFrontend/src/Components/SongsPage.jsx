@@ -35,7 +35,6 @@ export default function SongsPage({
       return;
     }
 
-    // Get user ID
     const userId = currentUser.id || currentUser.Id;
     if (!userId) {
       alert("User ID not found");
@@ -51,85 +50,45 @@ export default function SongsPage({
     try {
       setUploading(true);
 
-      // Step 1: Upload the song
-      console.log("Starting upload...");
       const uploadResponse = await fetch(`${API_AUDIO}/upload`, {
         method: "POST",
         body: formData,
         credentials: "include",
       });
 
-      console.log("Upload response status:", uploadResponse.status);
-      console.log("Upload response headers:", uploadResponse.headers);
-
       if (!uploadResponse.ok) {
         const errorText = await uploadResponse.text();
-        console.error("Upload failed:", errorText);
-        throw new Error(`Upload failed: ${uploadResponse.status}`);
+        throw new Error(
+          `Upload failed: ${uploadResponse.status} - ${errorText}`
+        );
       }
 
-      // Parse the response
       const responseText = await uploadResponse.text();
-      console.log("Raw response text:", responseText);
-
       let uploadData;
       try {
         uploadData = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error("JSON parse error:", parseError);
-        console.error("Response was:", responseText);
+      } catch {
         throw new Error("Invalid JSON response from server");
       }
 
-      console.log("Parsed upload data:", uploadData);
-      console.log("Song object:", uploadData.song);
-
-      // Get the song from response
-      if (!uploadData.song) {
-        console.error("No song in response. Full response:", uploadData);
-        throw new Error("No song object in response");
-      }
-
       const song = uploadData.song;
-      console.log("Song ID:", song.id);
+      if (!song || !song.id) throw new Error("No song object in response");
 
-      if (!song.id) {
-        console.error("No ID in song. Song object:", song);
-        console.error("Song keys:", Object.keys(song));
-        throw new Error("No ID in song object");
-      }
-
-      const songId = song.id;
-      console.log("Using song ID:", songId);
-
-      // Step 2: Add song to user
-      console.log(`Adding song ${songId} to user ${userId}`);
-      const addUrl = `${API_USER}/${userId}/songs/${songId}`;
-      console.log("POST URL:", addUrl);
-
-      const addToUserResponse = await fetch(addUrl, {
-        method: "POST",
-        credentials: "include",
-      });
-
-      console.log("Add to user response status:", addToUserResponse.status);
-
-      if (!addToUserResponse.ok) {
-        const errorText = await addToUserResponse.text();
-        console.error("Add to user failed:", errorText);
+      const addToUserResponse = await fetch(
+        `${API_USER}/${userId}/songs/${song.id}`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+      if (!addToUserResponse.ok)
         throw new Error("Failed to add song to your library");
-      }
 
-      console.log("Song successfully added to user!");
-
-      // Reset form and refresh
       setUploadForm({ title: "", artist: "", songMood: "Happy" });
       setSelectedFile(null);
       onSongsFetch();
-
       alert("Song uploaded successfully!");
     } catch (err) {
-      console.error("Error in handleUpload:", err);
       alert(err.message || "Failed to upload song. Please try again.");
     } finally {
       setUploading(false);
@@ -138,21 +97,18 @@ export default function SongsPage({
 
   const handleDeleteSong = async (e, songId) => {
     e.stopPropagation();
-
     if (
       !window.confirm(
         "Are you sure you want to remove this song from your library? This will also remove it from all playlists."
       )
-    ) {
+    )
       return;
-    }
 
     const userId = currentUser.id || currentUser.Id;
 
     try {
       setDeleting(songId);
 
-      // Step 1: Remove song from all playlists
       const removeFromPlaylistsResponse = await fetch(
         `${API_PLAYLIST}/remove-from-playlists/${songId}`,
         {
@@ -160,27 +116,18 @@ export default function SongsPage({
           credentials: "include",
         }
       );
-
-      if (!removeFromPlaylistsResponse.ok) {
-        const errorText = await removeFromPlaylistsResponse.text();
-        console.error("Remove from playlists failed:", errorText);
+      if (!removeFromPlaylistsResponse.ok)
         throw new Error("Failed to remove song from playlists");
-      }
 
-      // Step 2: Remove song from user library
       const response = await fetch(`${API_USER}/${userId}/songs/${songId}`, {
         method: "DELETE",
         credentials: "include",
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to remove song from library");
-      }
+      if (!response.ok) throw new Error("Failed to remove song from library");
 
       onSongsFetch();
       alert("Song removed successfully!");
     } catch (err) {
-      console.error("Error deleting song:", err);
       alert(err.message || "Failed to remove song. Please try again.");
     } finally {
       setDeleting(null);
@@ -196,6 +143,7 @@ export default function SongsPage({
         </p>
         <div className="upload-form">
           <input
+            data-testid="upload-title"
             type="text"
             placeholder="Song title"
             value={uploadForm.title}
@@ -203,9 +151,9 @@ export default function SongsPage({
               setUploadForm({ ...uploadForm, title: e.target.value })
             }
             className="form-input"
-            required
           />
           <input
+            data-testid="upload-artist"
             type="text"
             placeholder="Artist"
             value={uploadForm.artist}
@@ -213,9 +161,9 @@ export default function SongsPage({
               setUploadForm({ ...uploadForm, artist: e.target.value })
             }
             className="form-input"
-            required
           />
           <select
+            data-testid="upload-mood"
             value={uploadForm.songMood}
             onChange={(e) =>
               setUploadForm({ ...uploadForm, songMood: e.target.value })
@@ -228,19 +176,24 @@ export default function SongsPage({
             <option>Energetic</option>
             <option>Romantic</option>
           </select>
+
           <label
+            data-testid="upload-label"
             className={`file-label ${selectedFile ? "file-selected" : ""}`}
           >
             <Upload size={20} />
             {selectedFile ? selectedFile.name : "Choose audio file"}
             <input
+              data-testid="upload-file"
               type="file"
               accept="audio/*"
               onChange={(e) => setSelectedFile(e.target.files[0])}
               className="file-input"
             />
           </label>
+
           <button
+            data-testid="upload-submit"
             onClick={handleUpload}
             disabled={
               uploading ||
@@ -268,8 +221,16 @@ export default function SongsPage({
             </div>
           ) : (
             songs.map((song) => (
-              <div key={song.id} className="song-card">
-                <div className="song-info" onClick={() => onPlaySong(song)}>
+              <div
+                key={song.id}
+                className="song-card"
+                data-testid={`song-${song.id}`}
+              >
+                <div
+                  className="song-info"
+                  onClick={() => onPlaySong(song)}
+                  data-testid={`song-play-${song.id}`}
+                >
                   <div className="song-icon">
                     <Music size={24} color="#fff" />
                   </div>
@@ -284,6 +245,7 @@ export default function SongsPage({
                     className="play-btn-icon"
                     onClick={() => onPlaySong(song)}
                     title="Play song"
+                    data-testid={`song-play-btn-${song.id}`}
                   >
                     <Play size={22} className="play-icon" />
                   </button>
@@ -292,6 +254,7 @@ export default function SongsPage({
                     onClick={(e) => handleDeleteSong(e, song.id)}
                     disabled={deleting === song.id}
                     title="Remove from library"
+                    data-testid={`song-delete-btn-${song.id}`}
                   >
                     <Trash2
                       size={20}

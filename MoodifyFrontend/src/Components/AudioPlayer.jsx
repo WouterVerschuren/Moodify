@@ -121,13 +121,17 @@ function AudioPlayer({
       <div className="audio-player-content">
         {currentTrack ? (
           <>
-            <div className="track-info">
+            <div className="track-info" data-testid="current-track-info">
               <div className="track-icon">
-                <Music size={28} color="#fff" />
+                <Music size={28} color="#fff" data-testid="track-icon" />
               </div>
               <div>
-                <div className="track-title">{currentTrack.title}</div>
-                <div className="track-artist">{currentTrack.artist}</div>
+                <div className="track-title" data-testid="track-title">
+                  {currentTrack.title}
+                </div>
+                <div className="track-artist" data-testid="track-artist">
+                  {currentTrack.artist}
+                </div>
               </div>
             </div>
 
@@ -136,6 +140,7 @@ function AudioPlayer({
                 <button
                   onClick={() => setShuffle(!shuffle)}
                   className={`control-btn ${shuffle ? "active" : ""}`}
+                  data-testid="shuffle-btn"
                 >
                   <Shuffle size={18} />
                 </button>
@@ -143,10 +148,15 @@ function AudioPlayer({
                   onClick={handlePrev}
                   disabled={currentPlaylist.length <= 1}
                   className="control-btn"
+                  data-testid="prev-btn"
                 >
                   <SkipBack size={22} />
                 </button>
-                <button onClick={togglePlay} className="play-btn">
+                <button
+                  onClick={togglePlay}
+                  className="play-btn"
+                  data-testid="play-toggle"
+                >
                   {isPlaying ? (
                     <Pause size={24} />
                   ) : (
@@ -157,36 +167,57 @@ function AudioPlayer({
                   onClick={handleNext}
                   disabled={currentPlaylist.length <= 1}
                   className="control-btn"
+                  data-testid="next-btn"
                 >
                   <SkipForward size={22} />
                 </button>
                 <button
                   onClick={() => setRepeat(!repeat)}
                   className={`control-btn ${repeat ? "active" : ""}`}
+                  data-testid="repeat-btn"
                 >
                   <Repeat size={18} />
                 </button>
               </div>
 
-              <div className="progress-container">
-                <span className="time-display">{formatTime(progress)}</span>
-                <div onClick={handleSeek} className="progress-bar">
+              <div
+                className="progress-container"
+                data-testid="progress-container"
+              >
+                <span className="time-display" data-testid="progress-current">
+                  {formatTime(progress)}
+                </span>
+                <div
+                  onClick={handleSeek}
+                  className="progress-bar"
+                  data-testid="progress-bar"
+                >
                   <div
                     className="progress-fill"
                     style={{ width: `${(progress / duration) * 100}%` }}
+                    data-testid="progress-fill"
                   />
                 </div>
-                <span className="time-display time-end">
+                <span
+                  className="time-display time-end"
+                  data-testid="progress-duration"
+                >
                   {formatTime(duration)}
                 </span>
               </div>
             </div>
 
             <div className="spacer" />
-            <audio ref={audioRef} src={currentTrack.storagePath} />
+            <audio
+              ref={audioRef}
+              src={currentTrack.storagePath}
+              data-testid="audio-element"
+            />
           </>
         ) : (
-          <div className="no-track">Select a song to start playing</div>
+          <div className="no-track" data-testid="no-track">
+            Select a song to start playing
+          </div>
         )}
       </div>
     </div>
