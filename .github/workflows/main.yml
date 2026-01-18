@@ -265,7 +265,7 @@ jobs:
   # Playwright E2E Tests
   # -------------------
   e2e-tests:
-    needs: [build-frontend, deploy]
+    needs: [build-frontend,build-audio, build-playlist, build-auth, build-user]
     runs-on: ubuntu-latest
     if: needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
     steps:
