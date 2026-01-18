@@ -42,7 +42,7 @@ jobs:
             user:        'Services/UserService/**'
             frontend:    'MoodifyFrontend/**'
 
-  tests:
+  unit-tests:
     name: Run Backend Unit Tests
     needs: detect-changes
     if: needs.detect-changes.outputs.any_backend == 'true' || github.event_name == 'workflow_dispatch'
@@ -134,9 +134,6 @@ jobs:
         with:
           sarif_file: reports/dependency-check-report.sarif
 
-  # -------------------
-  # Build backend services
-  # -------------------
   build-audio:
     needs: [detect-changes, tests, sonar, dependency-check]
     if: needs.detect-changes.outputs.audio == 'true' || github.event_name == 'workflow_dispatch'
@@ -213,9 +210,6 @@ jobs:
           docker build -t $IMG:${{ github.sha }} -t $IMG:latest Services/UserService
           docker push $IMG:${{ github.sha }} && docker push $IMG:latest
 
-  # -------------------
-  # Build frontend
-  # -------------------
   build-frontend:
     needs: [detect-changes, tests, sonar, dependency-check]
     if: needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
@@ -237,9 +231,6 @@ jobs:
           docker build -t $IMG:${{ github.sha }} -t $IMG:latest MoodifyFrontend
           docker push $IMG:${{ github.sha }} && docker push $IMG:latest
 
-  # -------------------
-  # Integration Tests
-  # -------------------
   integration-tests:
     needs: [build-audio, build-playlist, build-auth, build-user]
     runs-on: ubuntu-latest
@@ -261,9 +252,6 @@ jobs:
           cd Services/AudioService.IntegrationTests
           dotnet test -c Release --logger trx
 
-  # -------------------
-  # Playwright E2E Tests
-  # -------------------
   e2e-tests:
     needs: [build-frontend,build-audio, build-playlist, build-auth, build-user]
     runs-on: ubuntu-latest
@@ -293,9 +281,6 @@ jobs:
           cd MoodifyFrontend
           npx playwright test tests/e2e/song-upload.spec.ts --reporter=list
 
-  # -------------------
-  # Security scans and deployment (unchanged)
-  # -------------------
   zap-security-scan:
     name: ZAP Security Scan (External API)
     runs-on: ubuntu-latest
