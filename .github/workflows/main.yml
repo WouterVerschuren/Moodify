@@ -338,7 +338,9 @@ jobs:
         build-auth,
         build-user,
         build-frontend,
-        zap-security-scan
+        zap-security-scan,
+        integration-tests,
+        e2e-tests
       ]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     environment: production
