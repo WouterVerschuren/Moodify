@@ -42,19 +42,17 @@ jobs:
             user:        'Services/UserService/**'
             frontend:    'MoodifyFrontend/**'
 
-
   tests:
     name: Run Backend Unit Tests
     needs: detect-changes
     if: needs.detect-changes.outputs.any_backend == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+          dotnet-version: ${{ env.DOTNET_VERSION}}
 
       - name: Restore solution
         run: |
@@ -136,6 +134,9 @@ jobs:
         with:
           sarif_file: reports/dependency-check-report.sarif
 
+  # -------------------
+  # Build backend services
+  # -------------------
   build-audio:
     needs: [detect-changes, tests, sonar, dependency-check]
     if: needs.detect-changes.outputs.audio == 'true' || github.event_name == 'workflow_dispatch'
@@ -212,6 +213,9 @@ jobs:
           docker build -t $IMG:${{ github.sha }} -t $IMG:latest Services/UserService
           docker push $IMG:${{ github.sha }} && docker push $IMG:latest
 
+  # -------------------
+  # Build frontend
+  # -------------------
   build-frontend:
     needs: [detect-changes, tests, sonar, dependency-check]
     if: needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
@@ -233,6 +237,65 @@ jobs:
           docker build -t $IMG:${{ github.sha }} -t $IMG:latest MoodifyFrontend
           docker push $IMG:${{ github.sha }} && docker push $IMG:latest
 
+  # -------------------
+  # Integration Tests
+  # -------------------
+  integration-tests:
+    needs: [build-audio, build-playlist, build-auth, build-user]
+    runs-on: ubuntu-latest
+    if: needs.detect-changes.outputs.audio == 'true' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore Integration Test project
+        run: |
+          cd Services/AudioService.IntegrationTests
+          dotnet restore
+
+      - name: Run Integration Tests
+        run: |
+          cd Services/AudioService.IntegrationTests
+          dotnet test -c Release --logger trx
+
+  # -------------------
+  # Playwright E2E Tests
+  # -------------------
+  e2e-tests:
+    needs: [build-frontend,build-audio, build-playlist, build-auth, build-user]
+    runs-on: ubuntu-latest
+    if: needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: MoodifyFrontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: |
+          cd MoodifyFrontend
+          npm ci
+
+      - name: Install Playwright browsers
+        run: |
+          cd MoodifyFrontend
+          npx playwright install --with-deps
+
+      - name: Run Playwright E2E tests
+        run: |
+          cd MoodifyFrontend
+          npx playwright test tests/e2e/song-upload.spec.ts --reporter=list
+
+  # -------------------
+  # Security scans and deployment (unchanged)
+  # -------------------
   zap-security-scan:
     name: ZAP Security Scan (External API)
     runs-on: ubuntu-latest
@@ -242,13 +305,13 @@ jobs:
       matrix:
         include:
           - service: Audio
-            url: https://4.251.168.14.nip.io/api/Audio/health
+            url: https://20.23.0.233.nip.io//api/Audio/health
           - service: Playlist
-            url: https://4.251.168.14.nip.io/api/Playlist/health
+            url: https://20.23.0.233.nip.io//api/Playlist/health
           - service: Auth
-            url: https://4.251.168.14.nip.io/api/Auth/health
+            url: https://20.23.0.233.nip.io//api/Auth/health
           - service: User
-            url: https://4.251.168.14.nip.io/api/User/health
+            url: https://20.23.0.233.nip.io//api/User/health
     steps:
       - name: ZAP Baseline Scan - ${{ matrix.service }}
         uses: zaproxy/action-baseline@v0.12.0
@@ -304,3 +367,4 @@ jobs:
           else
             echo "No k8s manifests found at $K8S_PATH, skipping deploy"
           fi
+
